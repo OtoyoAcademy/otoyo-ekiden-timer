@@ -88,7 +88,7 @@
               <div class="form-grid two">
                 <label>チーム名 <span class="req">必須</span><input id="entryTeamName" required maxlength="60" placeholder="例：大豊スマイルズ" /></label>
                 <label>代表者氏名 <span class="req">必須</span><input id="entryRepName" required maxlength="60" placeholder="例：山田 太郎" /></label>
-                <label>代表者区分<select id="entryRepType"><option>参加者</option><option>保護者</option><option>地域・一般</option><option>学校関係者</option><option>その他</option></select></label>
+                <label>代表者区分<select id="entryRepType"><option>大豊学園児童・生徒</option><option>保護者</option><option>地域・一般</option><option>学校関係者</option><option>その他</option></select></label>
                 <label>電話番号 <span class="req">必須</span><input id="entryPhone" required inputmode="tel" placeholder="090-1234-5678" /></label>
                 <label>連絡可能なメールアドレス<input id="entryEmail" type="email" inputmode="email" placeholder="example@example.com" /></label>
                 <label>FAX番号<input id="entryFax" inputmode="tel" placeholder="0887-xx-xxxx" /></label>
@@ -209,6 +209,14 @@
               <label>事務局連絡先<input id="settingContact" /></label>
             </div>
             <p class="hint">区間数は1〜30で設定できます。減らしても既存の区間データは削除せず保持します。</p>
+            <div class="leg-distance-settings">
+              <div class="leg-distance-head">
+                <div><h3>区間ごとの距離</h3><p class="hint">km単位で設定します。小数も入力できます（例：1.5、2.35）。未設定でも計測できます。</p></div>
+                <div class="same-distance-tool"><label>全区間へ一括入力<input id="settingAllLegDistance" type="number" min="0.01" max="100" step="0.01" inputmode="decimal" placeholder="例 2.0" /></label><button type="button" class="secondary-btn" id="applySameDistanceBtn">同じ距離を入力</button></div>
+              </div>
+              <div id="legDistanceInputs" class="leg-distance-grid"></div>
+              <div id="legDistanceSummary" class="distance-summary">0区間設定済み</div>
+            </div>
             <label class="toggle-line"><input type="checkbox" id="settingEntryOpen" /> 駅伝の参加申込を受け付ける</label>
             <button class="primary-btn" id="saveEventSettingsBtn">大会設定を保存</button>
           </article>
