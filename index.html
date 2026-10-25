@@ -162,9 +162,9 @@
           <div id="teamLoginPane" class="login-pane">
             <p>各チーム1名の参考計測用です。運営側の記録が正式記録です。</p>
             <label>チーム番号<input id="teamLoginNo" inputmode="numeric" placeholder="例：1" /></label>
-            <label>チーム用アクセスコード<input id="teamLoginCode" type="password" inputmode="numeric" placeholder="アクセスコード" /></label>
+            <label>チーム用アクセスコード<input id="teamLoginCode" type="password" inputmode="numeric" maxlength="6" pattern="[0-9]*" placeholder="4桁コード" /></label>
             <button class="primary-btn orange full" id="teamEnterBtn">チーム計測画面へ</button>
-            <p class="hint">デモ12チームでは、チーム1=1001、チーム2=1002 … チーム12=1012です。</p>
+            <p class="hint">新規発行コードは4桁です。移行直後の旧6桁コードも、4桁へ再発行するまでは利用できます。</p>
           </div>
         </div>
       </section>
@@ -226,8 +226,8 @@
           </article>
 
           <article class="panel wide">
-            <div class="panel-heading"><h2>登録チーム管理</h2><span class="mini-badge">承認後</span></div>
-            <p class="hint">申込を承認するとチーム番号と6桁のアクセスコードを自動発行します。CSV登録チームもここに表示されます。</p>
+            <div class="panel-heading"><h2>登録チーム管理</h2><div class="action-row wrap"><button class="secondary-btn" id="printAllTeamsBtn">チーム案内一括PDF・印刷</button><span class="mini-badge">承認後</span></div></div>
+            <p class="hint">申込を承認するとチーム番号と4桁のアクセスコードを自動発行します。各チームの案内はPDF保存または紙印刷できます。CSV登録チームもここに表示されます。</p>
             <div id="teamManagementList" class="table-wrap"></div>
           </article>
 

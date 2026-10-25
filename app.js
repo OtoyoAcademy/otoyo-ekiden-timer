@@ -1,6 +1,6 @@
-const STORAGE_KEY = 'ekiden_timer_v08_state';
-const QUEUE_KEY = 'ekiden_timer_v08_queue';
-const DEVICE_KEY = 'ekiden_timer_v08_device';
+const STORAGE_KEY = 'ekiden_timer_v09_state';
+const QUEUE_KEY = 'ekiden_timer_v09_queue';
+const DEVICE_KEY = 'ekiden_timer_v09_device';
 const ROOT_PATH = (window.EKIDEN_APP_OPTIONS && window.EKIDEN_APP_OPTIONS.rootPath) || 'ekidenTimerV02';
 const PASSAGE_WINDOW_MS = 2500;
 const SPREAD_WARNING_MS = 500;
@@ -515,10 +515,52 @@ function deleteApplication(id){const a=state.applications?.[id];if(!a)return;if(
 
 function renderTeamManagement(){
   const teams=teamList(),el=document.getElementById('teamManagementList');if(!teams.length){el.innerHTML='<div class="empty-state">登録チームはありません。</div>';return;}
-  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).length}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn" data-rename-team="${esc(t.teamNo)}">名称変更</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">コード再発行</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).length}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn" data-rename-team="${esc(t.teamNo)}">名称変更</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">PDF・印刷</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
   el.querySelectorAll('[data-rename-team]').forEach(b=>b.addEventListener('click',()=>renameTeam(b.dataset.renameTeam)));
   el.querySelectorAll('[data-regenerate-code]').forEach(b=>b.addEventListener('click',()=>regenerateTeamCode(b.dataset.regenerateCode)));
+  el.querySelectorAll('[data-print-team]').forEach(b=>b.addEventListener('click',()=>printTeamGuide([b.dataset.printTeam])));
   el.querySelectorAll('[data-delete-team]').forEach(b=>b.addEventListener('click',()=>deleteTeam(b.dataset.deleteTeam)));
+}
+
+function printEscape(s=''){return String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c));}
+function formatEventDateForGuide(v){
+  if(!v)return '未設定';
+  const d=new Date(`${v}T00:00:00`);if(Number.isNaN(d.getTime()))return v;
+  return d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+}
+function teamGuideHtml(teamNo){
+  const t=getTeam(teamNo);if(!t)return '';
+  const app=t.sourceApplicationId?state.applications?.[t.sourceApplicationId]:null;
+  const c=app?.contact||{};const cfg=state.settings||{};
+  const code=privateTeamCodes[String(t.teamNo)]||t.accessCode||app?.issuedAccessCode||'未設定';
+  const runners=(t.runners||[]).slice().sort((a,b)=>Number(a.leg)-Number(b.leg));
+  return `<section class="team-sheet">
+    <header class="sheet-head">
+      <img src="assets/logo-kanji.png" alt="駅伝" />
+      <div><div class="sheet-kicker">${printEscape(cfg.eventName||'大豊学園駅伝大会')}</div><h1>チーム参加案内</h1></div>
+    </header>
+    <div class="credential-box">
+      <div><small>チーム番号</small><strong>${printEscape(t.teamNo)}</strong></div>
+      <div><small>チーム用アクセスコード</small><strong>${printEscape(code)}</strong></div>
+    </div>
+    <table class="summary"><tbody>
+      <tr><th>チーム名</th><td>${printEscape(t.teamName)}</td><th>代表者</th><td>${printEscape(c.repName||t.representative?.name||'—')}</td></tr>
+      <tr><th>開催日</th><td>${printEscape(formatEventDateForGuide(cfg.eventDate))}</td><th>会場</th><td>${printEscape(cfg.venue||'未設定')}</td></tr>
+      <tr><th>事務局</th><td colspan="3">${printEscape(cfg.contact||'大会事務局')}</td></tr>
+    </tbody></table>
+    <div class="guide-note"><strong>チーム参考計測について</strong><br>「計測係」→「チーム計測係」から、上記のチーム番号とアクセスコードでログインしてください。チーム側のタイムはバックアップ用の参考記録で、運営側の記録が正式記録です。</div>
+    <h2>登録走者</h2>
+    <table class="runners"><thead><tr><th>区間</th><th>氏名</th><th>性別</th><th>区分</th></tr></thead><tbody>${Array.from({length:15},(_,i)=>{const r=runners.find(x=>Number(x.leg)===i+1)||{};return `<tr><td>第${i+1}区間</td><td>${printEscape(r.name||'—')}</td><td>${printEscape(r.sex||'')}</td><td>${printEscape(r.ageGroup||'')}</td></tr>`;}).join('')}</tbody></table>
+    <p class="sheet-foot">この用紙はチーム内で保管してください。アクセスコードを第三者へ公開しないでください。</p>
+  </section>`;
+}
+function printTeamGuide(teamNos){
+  const nos=(teamNos||[]).map(String).filter(no=>getTeam(no));if(!nos.length){toast('印刷するチームがありません');return;}
+  const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}
+  const sheets=nos.map(teamGuideHtml).join('').replaceAll('src="assets/logo-kanji.png"',`src="${new URL('assets/logo-kanji.png',location.href).href}"`);
+  w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>駅伝 チーム参加案内</title><style>
+    @page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#132b45;background:#fff}.team-sheet{page-break-after:always;min-height:270mm;padding:4mm}.team-sheet:last-child{page-break-after:auto}.sheet-head{display:flex;align-items:center;gap:16px;border-bottom:3px solid #167fd7;padding-bottom:10px}.sheet-head img{width:92px;height:72px;object-fit:contain}.sheet-kicker{font-size:12px;color:#5f7890;font-weight:700}.sheet-head h1{font-size:24px;margin:4px 0}.credential-box{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.credential-box>div{border:2px solid #1686e8;border-radius:14px;padding:12px;text-align:center;background:#f4f9ff}.credential-box small{display:block;color:#60788f;font-weight:700}.credential-box strong{display:block;font-size:30px;letter-spacing:.08em;margin-top:3px}.summary,.runners{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}.summary th,.summary td,.runners th,.runners td{border:1px solid #cfdde9;padding:7px 8px}.summary th,.runners th{background:#eef6fc;text-align:left}.summary th{width:14%}.guide-note{border-left:5px solid #ff8a21;background:#fff7eb;padding:10px 12px;line-height:1.6;font-size:12px;margin:14px 0}h2{font-size:16px;margin:14px 0 6px}.runners th:first-child,.runners td:first-child{width:15%;text-align:center}.sheet-foot{font-size:10px;color:#6a8094;margin-top:10px}@media print{button{display:none}}
+  </style></head><body>${sheets}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));<\/script></body></html>`);w.document.close();
 }
 function renameTeam(no){const t=getTeam(no);if(!t)return;const name=prompt('新しいチーム名を入力してください。',t.teamName);if(!name?.trim())return;queueWrite(`teams/${teamKey(no)}`,{...t,teamName:name.trim()});toast('チーム名を変更しました');}
 async function regenerateTeamCode(no){const t=getTeam(no);if(!t||!confirm(`${t.teamName}のチーム用アクセスコードを再発行しますか？`))return;const code=randomNumericCode();if(supabaseMode){if(!(await setTeamSecret(no,code)))return;}else queueWrite(`teams/${teamKey(no)}`,{...t,accessCode:code});if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,issuedAccessCode:code,updatedAt:syncedNow()});}toast(`新しいコード：${code}`);renderCurrent();}
@@ -529,6 +571,7 @@ function makeDummyApplication(seed){
   return {id,receiptNo:receiptNumber(id,submittedAt),teamName:['大豊ファミリー','杉の子ランナーズ','吉野川スマイル','おおとよフレンズ','山びこチーム','れいほくスターズ'][seed%6]+seed,contact:{repName:`代表 ${surnames[seed%surnames.length]}`,repType:seed%2?'保護者':'参加者',phone:'090-0000-'+String(1000+seed),email:pref==='email'?`dummy${seed}@example.com`:'',fax:pref==='fax'?'0887-00-0000':'',address:pref==='postal'?'高知県長岡郡大豊町（ダミー）':'',contactPref:pref,studentName:pref==='student'?'大豊学園 児童生徒（ダミー）':''},runners:Array.from({length:15},(_,i)=>{const same=(i===8?2:i);return {leg:i+1,name:`${surnames[(same+seed)%surnames.length]} 選手${(same%7)+1}`,sex:(i+seed)%2?'女':'男',ageGroup:groups[(i+seed)%groups.length],age:[10,14,29,45][(i+seed)%4]};}),notes:'開発用ダミー申込',status:'pending',submittedAt,updatedAt:submittedAt};
 }
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
+document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
 document.getElementById('exportApplicationsBtn').addEventListener('click',()=>{
   const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_applications_v03.csv','text/csv;charset=utf-8');
 });
@@ -599,9 +642,9 @@ function parseEntryCsv(text){
   Object.values(teams).forEach(t=>{const legs=t.runners.map(r=>r.leg),dup=legs.find((x,i)=>legs.indexOf(x)!==i);if(dup)errors.push(`チーム${t.teamNo}：第${dup}区間が重複しています。`);});return {valid:!errors.length,errors,rows,teams};
 }
 function zenToHan(s){return String(s).replace(/[０-９]/g,x=>String.fromCharCode(x.charCodeAt(0)-0xFEE0));}
-function randomNumericCode(){const a=new Uint32Array(1);crypto.getRandomValues(a);return String(100000+(a[0]%900000));}
+function randomNumericCode(){const a=new Uint32Array(1);crypto.getRandomValues(a);return String(1000+(a[0]%9000));}
 function parseCsv(text){const out=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const c=text[i];if(q){if(c==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(c==='"')q=false;else cell+=c;}else{if(c==='"')q=true;else if(c===','){row.push(cell);cell='';}else if(c==='\n'){row.push(cell.replace(/\r$/,''));out.push(row);row=[];cell='';}else cell+=c;}}row.push(cell.replace(/\r$/,''));if(row.some(v=>v!==''))out.push(row);return out;}
-function renderCsvPreview(x){const el=document.getElementById('csvPreview');el.classList.remove('empty');if(x.errors.length){el.innerHTML=`<b>${x.errors.length}件のエラー</b><ul>${x.errors.slice(0,10).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`;return;}el.innerHTML=`<b>登録可能：</b>${Object.keys(x.teams).length}チーム / ${x.rows.length}区間分<br><small>チーム用コードが空欄の場合は6桁で自動発行します。</small>`;}
+function renderCsvPreview(x){const el=document.getElementById('csvPreview');el.classList.remove('empty');if(x.errors.length){el.innerHTML=`<b>${x.errors.length}件のエラー</b><ul>${x.errors.slice(0,10).map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`;return;}el.innerHTML=`<b>登録可能：</b>${Object.keys(x.teams).length}チーム / ${x.rows.length}区間分<br><small>チーム用コードが空欄の場合は4桁で自動発行します。</small>`;}
 function clearRaceMeasurements(){queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('meta',{...state.meta,raceStatus:'before',startAt:null,finishAt:null});}
 
 // ---------- Official timer ----------

@@ -1,4 +1,4 @@
--- Otoyo Ekiden Timer v0.8 - Supabase setup
+-- Otoyo Ekiden Timer v0.9 - Supabase setup
 -- Run this entire script once in Supabase Dashboard -> SQL Editor.
 
 create extension if not exists pgcrypto with schema extensions;

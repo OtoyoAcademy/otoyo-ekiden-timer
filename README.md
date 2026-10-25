@@ -1,3 +1,22 @@
+# otoyo-ekiden-timer v0.9
+
+## v0.9 の変更
+
+- チーム用アクセスコードを新規発行時 **4桁** に変更
+- 既存の旧6桁コードも移行用として一時的にログイン可能
+- Supabaseのチームログイン照合RPCを安定化する `supabase-patch-v0.9.sql` を追加
+- 登録チームごとに **PDF・印刷** ボタンを追加
+- 全登録チームの **案内一括PDF・印刷** を追加
+- 印刷物には大会名、開催日、会場、チーム番号、アクセスコード、代表者、15区間の登録走者、参考計測の説明を掲載
+- PDFはブラウザの印刷画面から「PDFに保存」または紙印刷が可能
+
+### 更新時の重要手順
+
+1. Supabase SQL Editorで `supabase-patch-v0.9.sql` を実行
+2. GitHub Pagesへv0.9を上書き
+3. 既存6桁コードはそのままテスト可能
+4. 4桁へ切り替える場合は管理者画面の「4桁コード再発行」
+
 # school-events 接続済み版
 
 このフォルダは Supabase プロジェクト `school-events` の Project URL と Publishable key を設定済みです。
