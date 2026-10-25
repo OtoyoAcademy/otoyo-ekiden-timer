@@ -1,156 +1,63 @@
-# otoyo-ekiden-timer v0.7
+# school-events 接続済み版
 
-学校GitHubアカウントへの移行用ビルドです。機能は v0.6 を引き継ぎます。
+このフォルダは Supabase プロジェクト `school-events` の Project URL と Publishable key を設定済みです。
 
-## v0.7 の変更点
+- Project URL: `https://huimxdyqxowbbgrkrwjb.supabase.co`
+- Firebase は使用しません
+- GitHub Pages + Supabase 構成です
+- `secret` / `service_role` キーは含めていません
 
-- GitHub の公開先を学校アカウント `OtoyoAcademy` に移す前提で整理
-- Firebase は現在の `otoyo-ekiden-timer` プロジェクトをそのまま継続使用
-- `firebase-config.js` は既存設定を維持
-- GitHub Pages のURLが変わっても、申込QRコードは現在開いているサイトURLから生成されるため、新しい学校版URLで再生成可能
-- `main` ブランチ / `(root)` から GitHub Pages 公開する構成を維持
-- v0.6 のトップ画面・申込画面・参加者閲覧画面・掲示板・計測機能をすべて引き継ぎ
+# otoyo-ekiden-timer v0.8 — GitHub Pages + Supabase
 
-## 学校GitHubへの移行後に確認すること
+Firebase版 v0.7 を **GitHub Pages + Supabase** 構成へ移行した版です。
+画面・計測ロジック・申込・掲示板・参加者閲覧など、v0.7までの機能を引き継ぎます。
 
-1. リポジトリ直下にZIP展開後のファイルをアップロード
-2. `Settings → Pages`
-3. `Deploy from a branch`
-4. Branch: `main`
-5. Folder: `/(root)`
-6. 公開された学校アカウント側URLでトップ画面を確認
-7. Firebase Realtime Database に接続できることを確認
-8. 管理者画面から申込QRコードを新しいURLで再生成
+## v0.8 の主な変更
 
-# otoyo-ekiden-timer v0.6
+- Firebase SDK / Realtime Database を削除
+- Supabase JavaScript v2 をブラウザから利用
+- Postgres + Realtime で複数端末同期
+- Supabase Auth の Anonymous Sign-In を利用
+- 管理者・計測係A/B/C・チームのアクセスコード判定をPostgres RPC側へ移動
+- チーム用アクセスコードを公開チームデータから分離
+- 申込の氏名・電話・メール・住所などを、管理者以外から読めないRLS構成に変更
+- 端末重複防止ロックをSupabase側で管理
+- Supabaseサーバー時刻から端末時刻の補正値を取得
+- 通信断時のローカルキューと復旧後再送を継続
 
-今回の更新:
-- トップ画面を「重要なお知らせ → 参加申込 → 参加者・閲覧者 → 計測係 → 管理者」の順に変更
-- 参加申込画面を横幅いっぱいに使うレスポンシブ設計へ変更
-- スマホでは15区間の走者入力を横長テーブルではなく、区間ごとのカード形式で表示
-- 参加者・閲覧者画面を「お知らせ → チーム・記録」の順に変更
-- お知らせと各チーム記録を折りたたみ式に変更
-- チームを開くと、区間走者・区間タイム・累積タイムを表示
+## 最初にやること
 
-# otoyo-ekiden-timer v0.5
+1. Supabaseプロジェクトを作成
+2. Authentication で Anonymous Sign-Ins を有効化
+3. SQL Editor で `supabase-setup.sql` を実行
+4. Dashboard の Connect から Project URL と Publishable key を確認
+5. `supabase-config.js` に入力
+6. このフォルダの中身を `OtoyoAcademy/otoyo-ekiden-timer` へアップロード
+7. GitHub Pages を `main / (root)` で公開
 
-- トップ画面に「大会まで あと○日」を追加
-- トップ画面に「申込終了まで あと○日」を追加
-- 管理者画面に申込締切日の設定を追加
-- 申込締切日を過ぎると申込フォームを自動停止
-- 掲示板の「重要」投稿をトップ画面にも表示（最大3件）
-- 「Ekiden Timer」表記を「Ekiden」に変更
+詳しくは `SUPABASE_MIGRATION.md` を参照してください。
 
-# otoyo-ekiden-timer v0.4
+## Supabase設定ファイル
 
-- トップ画面デザインを更新（薄い色のスタイリッシュ背景、漢字「駅伝」ロゴ、人型アイコン）
-- お知らせ掲示板機能を追加（見出し・本文・対象・重要度・固定表示・公開/非公開・削除）
-- 参加者画面で掲示板をリアルタイム表示
-- PWA / manifest 用アイコンを漢字ロゴに更新
-
-# 大豊学園駅伝大会運営システム v0.3
-
-GitHub Pages + Firebase Realtime Database で動作する駅伝大会運営アプリの開発版です。
-
-## v0.3で追加したもの
-
-計測機能は v0.2 のまま維持し、実機計測テストは後でまとめて行う方針にしました。今回はダミーデータで確認できる大会運営機能を追加しています。
-
-- 駅伝参加申込フォーム
-  - チーム名、代表者、電話、メール、FAX、郵送先
-  - 希望連絡方法（メール / 電話 / FAX / 郵送 / 大豊学園児童生徒経由）
-  - 高知県教育委員会配布の児童生徒用Googleアカウントに関する注意表示
-  - 15区間の走者登録
-  - 同じ走者の複数区間登録に対応
-  - 性別、区分、年齢
-  - 備考
-- 申込受付番号の自動発行
-- 管理者の申込一覧
-- 申込の承認 / 差戻し
-- 承認時にチーム番号と6桁アクセスコードを自動発行
-- 承認した申込を計測用チームデータへ自動登録
-- 登録チーム管理
-  - チーム名変更
-  - チームアクセスコード再発行
-  - 未計測チームの削除
-- 申込CSV出力
-- ダミー申込6件の自動生成
-- 大会名、開催日、会場、事務局連絡先、申込受付ON/OFF
-- 参加申込URLのQRコード生成・PNG保存
-- GitHub Pages URLに `?screen=entry` を付けると申込フォームを直接表示
-- 参加者速報の「第0区間」を「未通過」表示に修正
-
-## 既存のv0.2機能
-
-- 管理者ログイン
-- 運営計測係 A / B / C の個別ログインと端末ロック
-- チームごとの参考計測ログイン
-- 一斉スタート、15区間
-- 運営3名の生計測保存
-- 3名計測時は中央値、2名計測時は平均、1名計測時はその値
-- 計測差警告
-- 生計測のチーム変更・削除
-- 正式時刻修正
-- チーム参考記録の正式採用 / 採用取消
-- Firebase Realtime Databaseでリアルタイム同期
-- Firebaseサーバー時刻補正
-- オフライン時のローカル保存キュー
-- 参加者向け速報順位とお知らせ
-- 結果CSV
-
-## Firebase
-
-このZIPには現在使用中の `otoyo-ekiden-timer` のFirebase Web設定を入れています。
-保存先は既存の `ekidenTimerV02` を継続使用するため、v0.2の計測データとつながります。
-
-Realtime Databaseルール（現在の開発用）:
-
-```json
-{
-  "rules": {
-    "ekidenTimerV02": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    }
-  }
-}
+```js
+window.EKIDEN_SUPABASE_CONFIG = {
+  url: "https://xxxxx.supabase.co",
+  publishableKey: "sb_publishable_xxxxx"
+};
 ```
 
-Authentication の Anonymous（匿名）を有効にしてください。
+ブラウザには **Publishable key** のみを置きます。Secret key / service_role key は入れません。
 
-## 重要：v0.3の申込機能はダミーデータ専用
+## 初期アクセスコード
 
-現在のRealtime Databaseルールでは、匿名認証したブラウザから `ekidenTimerV02` 全体を読み書きできます。
-したがって、**氏名・電話番号・住所など本物の個人情報を収集する本番申込には、まだ使用しないでください。**
+- 管理者: `1234`
+- 計測A: `1111`
+- 計測B: `2222`
+- 計測C: `3333`
 
-v0.3では画面・申込→承認→チーム登録の流れをダミーデータで作り込むための実装です。本番公開前に、管理者認証と申込データの読み取り権限を分離したFirebase Security Rulesへ変更します。
+Supabase接続後、管理者画面から変更してください。
 
-## GitHubへの更新
+## Firebaseデータ
 
-既存の `otoyo-ekiden-timer` リポジトリで、v0.3 ZIPを展開した中身をアップロードして既存ファイルを置き換えます。
-
-主なファイル:
-
-- `index.html`
-- `styles.css`
-- `app.js`
-- `firebase-config.js`
-- `database.rules.json`
-- `manifest.webmanifest`
-- `assets/icon.svg`
-
-GitHub Pagesはこれまで通り `main` / `/ (root)` で使用できます。
-
-## v0.3での確認方法
-
-1. 管理者ログイン（初期コード 1234）
-2. 「ダミー申込を追加」を押す
-3. 申込一覧で1件を「承認」
-4. チーム番号と6桁コードが発行されることを確認
-5. 「登録チーム管理」と「チーム計測コード」に同じチームが出ることを確認
-6. トップ → 「駅伝 参加申込」からフォームを開く
-7. 「ダミー入力」→「この内容で申し込む」
-8. 管理者画面に申込がリアルタイム表示されることを確認
-9. 「参加申込QR」のPNGを保存できることを確認
-
-実機によるA/B/C同時計測、通信切断、同時通過などのテストは、運営機能が一通り完成した後にまとめて行います。
+Firebase Realtime Databaseに保存されている既存データは自動移行しません。
+現段階がダミーデータ中心であれば、Supabase接続後にデモデータを読み直す運用を推奨します。

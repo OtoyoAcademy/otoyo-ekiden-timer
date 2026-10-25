@@ -65,7 +65,7 @@
           <span class="surface-line line-b"></span>
           <span class="surface-grid"></span>
         </div>
-        <p class="tech-note">GitHub Pages + Firebase Realtime Database</p>
+        <p class="tech-note">GitHub Pages + Supabase</p>
       </section>
 
       <!-- ENTRY -->
@@ -80,7 +80,7 @@
           </div>
           <div id="entryClosedMessage" class="warning-box hidden"></div>
           <div class="dev-warning">
-            <strong>開発版：</strong>現在はダミーデータでの動作確認用です。本番の個人情報を入力する前に、申込データを保護するFirebase認証・ルールへ切り替えます。
+            <strong>開発版：</strong>現在はダミーデータでの動作確認用です。SupabaseのRLS（行レベルセキュリティ）で、申込データを管理者以外から読み取れない構成にしています。
           </div>
           <form id="entryForm">
             <fieldset>
@@ -342,7 +342,8 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script src="firebase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script type="module" src="app.js"></script>
 </body>
