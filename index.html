@@ -100,7 +100,7 @@
             </fieldset>
 
             <fieldset>
-              <div class="fieldset-head"><legend>15区間の走者</legend><span>同じ方が複数区間を走っても構いません。</span></div>
+              <div class="fieldset-head"><legend id="entryLegLegend">15区間の走者</legend><span>同じ方が複数区間を走っても構いません。</span></div>
               <div class="runner-entry-table-wrap">
                 <table class="runner-entry-table">
                   <thead><tr><th>区間</th><th>氏名</th><th>性別</th><th>区分</th><th>年齢</th></tr></thead>
@@ -174,7 +174,7 @@
         <div class="dashboard-grid">
           <article class="panel status-panel">
             <div class="panel-heading"><h2>大会状況</h2><span class="status-pill" id="raceStatusPill">開始前</span></div>
-            <div class="stat-row"><div><small>チーム数</small><strong id="adminTeamCount">0</strong></div><div><small>区間</small><strong>15</strong></div><div><small>正式通過</small><strong id="adminPassCount">0</strong></div></div>
+            <div class="stat-row"><div><small>チーム数</small><strong id="adminTeamCount">0</strong></div><div><small>区間</small><strong id="adminLegCount">15</strong></div><div><small>正式通過</small><strong id="adminPassCount">0</strong></div></div>
             <div class="action-row"><button class="primary-btn green" id="startRaceBtn">一斉スタート</button><button class="secondary-btn" id="finishRaceBtn">競技終了</button></div>
             <p class="hint" id="clockStatus">端末時刻を確認中...</p>
           </article>
@@ -205,10 +205,34 @@
               <label>開催日<input id="settingEventDate" type="date" /></label>
               <label>申込締切日<input id="settingEntryDeadline" type="date" /></label>
               <label>会場<input id="settingVenue" /></label>
+              <label>区間数<input id="settingLegCount" type="number" min="1" max="30" inputmode="numeric" value="15" /></label>
               <label>事務局連絡先<input id="settingContact" /></label>
             </div>
+            <p class="hint">区間数は1〜30で設定できます。減らしても既存の区間データは削除せず保持します。</p>
             <label class="toggle-line"><input type="checkbox" id="settingEntryOpen" /> 駅伝の参加申込を受け付ける</label>
             <button class="primary-btn" id="saveEventSettingsBtn">大会設定を保存</button>
+          </article>
+
+          <article class="panel wide awards-admin-panel">
+            <div class="panel-heading"><h2>正式結果・表彰設定</h2><div class="action-row wrap"><span class="mini-badge" id="formalResultsBadge">非公開</span><span class="mini-badge" id="individualAwardsBadge">個人賞 非公開</span></div></div>
+            <p class="hint">同じ選手が複数区間を走った場合、個人表彰の判定にはその選手の最速ラップだけを使用します。同タイムは同順位・同時受賞として扱います。</p>
+            <div class="award-settings-grid">
+              <label>チーム表彰順位<input id="awardTeamTopN" type="number" min="1" max="10" inputmode="numeric" value="3" /><small>上位何位まで表彰するか</small></label>
+              <label class="award-toggle"><input type="checkbox" id="awardOverallFastest" checked /> 大会全区間の個人最速</label>
+              <label class="award-toggle"><input type="checkbox" id="awardGender" checked /> 男女別の個人最速</label>
+              <label class="award-toggle"><input type="checkbox" id="awardAgeGroup" checked /> 年代別の個人最速</label>
+              <label class="award-toggle"><input type="checkbox" id="awardAgeGender" /> 年代×男女別の個人最速</label>
+            </div>
+            <div class="action-row wrap award-actions">
+              <button class="primary-btn" id="saveAwardSettingsBtn">表彰設定を保存</button>
+              <button class="secondary-btn" id="toggleFormalResultsBtn">正式結果を公開</button>
+              <button class="secondary-btn" id="toggleIndividualAwardsBtn">個人賞を公開</button>
+              <button class="secondary-btn" id="generateDemoResultsBtn">ダミー正式結果を生成</button>
+            </div>
+            <div class="results-preview-grid">
+              <div><h3>チーム正式順位</h3><div id="adminFormalTeamResults" class="table-wrap"></div></div>
+              <div><h3>個人表彰候補</h3><div id="adminAwardResults" class="award-preview-list"></div></div>
+            </div>
           </article>
 
           <article class="panel">
@@ -335,6 +359,24 @@
           <p class="participant-guide">チーム名をタップすると区間ごとの記録を確認できます。</p>
           <div id="participantTeamList" class="participant-team-list"></div>
           <p class="provisional-note">※速報値です。正式結果は記録確認後に確定します。</p>
+        </article>
+
+        <article class="panel participant-section formal-results-panel hidden" id="participantFormalResultsPanel">
+          <div class="participant-section-head results-head">
+            <div><small>OFFICIAL RESULTS</small><h2>正式結果</h2></div>
+            <span class="section-count" id="participantFormalStatus">確定</span>
+          </div>
+          <p class="participant-guide">正式結果として公開された内容です。</p>
+          <div class="formal-results-body">
+            <div class="formal-team-results">
+              <h3>チーム総合順位</h3>
+              <div id="participantFormalTeams"></div>
+            </div>
+            <div class="formal-awards-wrap hidden" id="participantAwardsWrap">
+              <h3>個人賞</h3>
+              <div id="participantAwards"></div>
+            </div>
+          </div>
         </article>
       </section>
     </main>
