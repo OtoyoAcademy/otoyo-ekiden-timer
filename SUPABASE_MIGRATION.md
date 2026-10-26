@@ -70,3 +70,18 @@ GitHub Pages:
 
 v0.8は保存先をSupabaseへ切り替えるため、Firebase Realtime Databaseの既存データは自動移行しません。
 現在がダミーデータ中心なら、Supabase側でデモデータを読み直すのが最も安全です。
+
+
+## v0.13 証書テンプレート追加時
+
+既存の `school-events` プロジェクトへv0.13を適用する場合は、`supabase-patch-v0.13.sql` をSQL Editorで1回実行します。
+
+このパッチは次を行います。
+
+- 公開済み正式結果・表彰設定を参加者画面から読めるよう `awards` の読み取りを追加
+- 証書テンプレート・印画像専用の非公開 Supabase Storage bucket `ekiden-assets` を作成
+- `certificates/` 配下の読み取り・アップロード・更新・削除を駅伝アプリの管理者セッションだけに許可
+- 画像1ファイルの上限を3MBに設定
+- PNG / JPEG / WebP のみ許可
+
+完成した表彰状・記録証PDF自体はStorageへ保存しません。背景テンプレートと印画像だけを保存し、PDFはブラウザ側で都度生成します。

@@ -243,6 +243,50 @@
             </div>
           </article>
 
+          <article class="panel wide certificate-admin-panel">
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.13</span></div>
+            <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
+            <div class="certificate-meta-grid">
+              <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
+              <label>発行者名<input id="certificateIssuerName" placeholder="例：大会実行委員長" /></label>
+              <label>ハンコの方式<select id="certificateSealMode"><option value="text">文字印を自動生成</option><option value="image">印画像を使用</option><option value="none">ハンコなし</option></select></label>
+              <label>文字印<input id="certificateSealText" maxlength="12" placeholder="例：大豊学園" /></label>
+            </div>
+            <div class="seal-setting-row">
+              <div class="certificate-thumb seal-thumb"><div id="certificateSealPreview" class="seal-preview-box"></div><small>現在の印</small></div>
+              <div class="action-row wrap">
+                <label class="file-btn">印画像をアップロード<input type="file" id="certificateSealUpload" accept="image/png,image/jpeg,image/webp" hidden /></label>
+                <button class="secondary-btn" id="clearCertificateSealBtn" type="button">印画像を解除</button>
+                <button class="primary-btn" id="saveCertificateSettingsBtn" type="button">証書設定を保存</button>
+              </div>
+            </div>
+            <div class="certificate-template-grid">
+              <div class="certificate-template-card">
+                <div class="certificate-template-head"><h3>チーム表彰状</h3><span>総合順位</span></div>
+                <img id="teamAwardTemplatePreview" alt="チーム表彰状テンプレート" />
+                <div class="template-status" id="teamAwardTemplateStatus">標準テンプレート</div>
+                <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="teamAward" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="teamAward" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="teamAward" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="teamAward" type="button">プレビュー</button></div>
+              </div>
+              <div class="certificate-template-card">
+                <div class="certificate-template-head"><h3>個人賞表彰状</h3><span>最速・年代別等</span></div>
+                <img id="individualAwardTemplatePreview" alt="個人賞表彰状テンプレート" />
+                <div class="template-status" id="individualAwardTemplateStatus">標準テンプレート</div>
+                <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="individualAward" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="individualAward" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="individualAward" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="individualAward" type="button">プレビュー</button></div>
+              </div>
+              <div class="certificate-template-card">
+                <div class="certificate-template-head"><h3>個人記録証</h3><span>区間記録</span></div>
+                <img id="recordCertificateTemplatePreview" alt="個人記録証テンプレート" />
+                <div class="template-status" id="recordCertificateTemplateStatus">標準テンプレート</div>
+                <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="recordCertificate" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="recordCertificate" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="recordCertificate" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="recordCertificate" type="button">プレビュー</button></div>
+              </div>
+            </div>
+            <div class="certificate-output-actions">
+              <button class="primary-btn" id="printAwardCertificatesBtn" type="button">表彰状を一括PDF・印刷</button>
+              <button class="secondary-btn" id="printRecordCertificatesBtn" type="button">記録証を一括PDF・印刷</button>
+              <span class="hint">ブラウザの印刷画面から「PDFに保存」を選べます。</span>
+            </div>
+          </article>
+
           <article class="panel">
             <div class="panel-heading"><h2>参加申込QR</h2><span class="mini-badge">広報</span></div>
             <p>申込ページへ直接開くQRコードです。PNG保存してCanva等の募集ポスターに利用できます。</p>

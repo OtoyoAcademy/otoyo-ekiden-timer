@@ -1,6 +1,6 @@
-const STORAGE_KEY = 'ekiden_timer_v12_state';
-const QUEUE_KEY = 'ekiden_timer_v12_queue';
-const DEVICE_KEY = 'ekiden_timer_v12_device';
+const STORAGE_KEY = 'ekiden_timer_v13_state';
+const QUEUE_KEY = 'ekiden_timer_v13_queue';
+const DEVICE_KEY = 'ekiden_timer_v13_device';
 const ROOT_PATH = (window.EKIDEN_APP_OPTIONS && window.EKIDEN_APP_OPTIONS.rootPath) || 'ekidenTimerV02';
 const PASSAGE_WINDOW_MS = 2500;
 const SPREAD_WARNING_MS = 500;
@@ -29,8 +29,8 @@ let pendingQueue = loadQueue();
 
 function freshState(){
   return {
-    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:12 },
-    settings:{ eventName:'大豊学園駅伝大会', eventDate:'', entryDeadline:'', venue:'大豊学園', contact:'大会事務局', entryOpen:true, legCount:15, legDistances:{} },
+    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:13 },
+    settings:{ eventName:'大豊学園駅伝大会', eventDate:'', entryDeadline:'', venue:'大豊学園', contact:'大会事務局', entryOpen:true, legCount:15, legDistances:{}, certificate:{ organizerName:'', issuerName:'大会実行委員長', sealMode:'text', sealText:'大豊学園', sealImagePath:'', templates:{teamAward:'',individualAward:'',recordCertificate:''} } },
     applications:{},
     teams:{},
     officialMeasurements:{},
@@ -417,6 +417,115 @@ function renderAwardsAdmin(){
   const teamEl=document.getElementById('adminFormalTeamResults');if(teamEl)teamEl.innerHTML=renderFormalTeamTable(formalTeamResults());
   const awardEl=document.getElementById('adminAwardResults');if(awardEl)awardEl.innerHTML=renderAwardCards(individualAwardGroups(),true);
 }
+
+// ---------- Certificates / templates ----------
+const CERT_BUCKET='ekiden-assets';
+const CERT_DEFAULTS={
+  organizerName:'',issuerName:'大会実行委員長',sealMode:'text',sealText:'大豊学園',sealImagePath:'',
+  templates:{teamAward:'',individualAward:'',recordCertificate:''}
+};
+const CERT_TEMPLATE_FILES={teamAward:'assets/templates/team-award.png',individualAward:'assets/templates/individual-award.png',recordCertificate:'assets/templates/record-certificate.png'};
+const CERT_TEMPLATE_NAMES={teamAward:'team_award_template.png',individualAward:'individual_award_template.png',recordCertificate:'record_certificate_template.png'};
+let certificateResolvedUrls={teamAward:'',individualAward:'',recordCertificate:'',seal:''};
+function certificateConfig(){
+  const raw=state.settings?.certificate||{};
+  return {...CERT_DEFAULTS,...raw,templates:{...CERT_DEFAULTS.templates,...(raw.templates||{})}};
+}
+function absoluteAppUrl(path){try{return new URL(path,location.href).href;}catch{return path;}}
+function certificateTemplateUrl(kind){const cfg=certificateConfig();return (cfg.templates?.[kind]&&certificateResolvedUrls[kind])||absoluteAppUrl(CERT_TEMPLATE_FILES[kind]||CERT_TEMPLATE_FILES.recordCertificate);}
+function saveCertificateConfig(patch){
+  const cur=certificateConfig(),next={...cur,...patch,templates:{...cur.templates,...(patch.templates||{})}};
+  queueWrite('settings',{...(state.settings||{}),certificate:next});
+}
+function renderCertificateSettings(){
+  const cfg=certificateConfig();
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v??'';};
+  set('certificateOrganizerName',cfg.organizerName);set('certificateIssuerName',cfg.issuerName);set('certificateSealMode',cfg.sealMode||'text');set('certificateSealText',cfg.sealText||'');
+  ['teamAward','individualAward','recordCertificate'].forEach(kind=>{
+    const img=document.getElementById(`${kind}TemplatePreview`),st=document.getElementById(`${kind}TemplateStatus`);if(img)img.src=certificateTemplateUrl(kind);if(st)st.textContent=cfg.templates?.[kind]?'アップロード済みテンプレート':'標準テンプレート';
+  });
+  const box=document.getElementById('certificateSealPreview');if(box){
+    if(cfg.sealMode==='none')box.innerHTML='<span class="seal-none">なし</span>';
+    else if(cfg.sealMode==='image'&&cfg.sealImagePath&&certificateResolvedUrls.seal)box.innerHTML=`<img src="${esc(certificateResolvedUrls.seal)}" alt="印画像" />`;
+    else if(cfg.sealMode==='image'&&cfg.sealImagePath)box.innerHTML='<span class="seal-none">画像読込中</span>';
+    else box.innerHTML=`<span class="seal-text-mini">${esc(cfg.sealText||'印')}</span>`;
+  }
+  const needsSigned=(cfg.sealImagePath&&!certificateResolvedUrls.seal)||(['teamAward','individualAward','recordCertificate'].some(k=>cfg.templates?.[k]&&!certificateResolvedUrls[k]));
+  if(needsSigned&&currentSession?.role==='admin')refreshCertificateAssetUrls();
+}
+async function refreshCertificateAssetUrls(){
+  const cfg=certificateConfig();if(!supabaseReady||!sb||currentSession?.role!=='admin')return;
+  const entries=[['teamAward',cfg.templates?.teamAward],['individualAward',cfg.templates?.individualAward],['recordCertificate',cfg.templates?.recordCertificate],['seal',cfg.sealImagePath]];
+  for(const [key,path] of entries){
+    if(!path){certificateResolvedUrls[key]='';continue;}
+    const {data,error}=await sb.storage.from(CERT_BUCKET).createSignedUrl(path,3600);
+    if(!error&&data?.signedUrl)certificateResolvedUrls[key]=data.signedUrl;
+  }
+  ['teamAward','individualAward','recordCertificate'].forEach(kind=>{const img=document.getElementById(`${kind}TemplatePreview`);if(img)img.src=certificateTemplateUrl(kind);});
+  const box=document.getElementById('certificateSealPreview');if(box&&cfg.sealMode==='image'&&certificateResolvedUrls.seal)box.innerHTML=`<img src="${esc(certificateResolvedUrls.seal)}" alt="印画像" />`;
+}
+function downloadCertificateTemplate(kind){
+  const a=document.createElement('a');a.href=absoluteAppUrl(CERT_TEMPLATE_FILES[kind]);a.download=CERT_TEMPLATE_NAMES[kind]||'certificate_template.png';document.body.appendChild(a);a.click();a.remove();
+}
+function certFileOk(file){
+  if(!file)return false;if(!['image/png','image/jpeg','image/webp'].includes(file.type)){toast('PNG・JPG・WebP画像を選んでください');return false;}if(file.size>3*1024*1024){toast('画像は3MB以下にしてください');return false;}return true;
+}
+async function uploadCertificateAsset(kind,file){
+  if(!certFileOk(file))return;
+  if(!supabaseMode||!supabaseReady||!sb){toast('テンプレート画像の共有保存にはSupabase接続が必要です');return;}
+  if(currentSession?.role!=='admin'){toast('管理者ログインが必要です');return;}
+  const objectName=`certificates/${kind}`;
+  const {error}=await sb.storage.from(CERT_BUCKET).upload(objectName,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
+  if(error){console.error(error);toast('画像アップロードに失敗しました。v0.13用SQLパッチを確認してください');return;}
+  certificateResolvedUrls[kind==='seal'?'seal':kind]='';
+  if(kind==='seal')saveCertificateConfig({sealImagePath:objectName,sealMode:'image'});else saveCertificateConfig({templates:{[kind]:objectName}});
+  await refreshCertificateAssetUrls();toast(kind==='seal'?'印画像を安全に保存しました':'テンプレートを保存しました');
+}
+function certificateSealHtml(cfg){
+  if(cfg.sealMode==='none')return '';
+  if(cfg.sealMode==='image'&&cfg.sealImagePath&&certificateResolvedUrls.seal)return `<img class="cert-seal-image" src="${esc(certificateResolvedUrls.seal)}" alt="印" />`;
+  return `<div class="cert-seal-text">${esc(cfg.sealText||'印')}</div>`;
+}
+function certificateDateText(){
+  const s=state.settings?.eventDate;if(!s)return new Date().toLocaleDateString('ja-JP');const d=new Date(`${s}T00:00:00`);return Number.isNaN(d.getTime())?s:`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+function certificateRankLabel(rank){return Number(rank)===1?'優勝':Number(rank)===2?'準優勝':`第${rank}位`;}
+function certificateCommonFoot(cfg){
+  const org=cfg.organizerName||state.settings?.eventName||'大会実行委員会',issuer=cfg.issuerName||'大会実行委員長';
+  return `<div class="cert-date">${esc(certificateDateText())}</div><div class="cert-issuer"><span>${esc(org)}</span><strong>${esc(issuer)}</strong>${certificateSealHtml(cfg)}</div>`;
+}
+function certificatePageHtml(kind,data){
+  const cfg=certificateConfig(),eventName=state.settings?.eventName||'駅伝大会',bg=certificateTemplateUrl(kind);
+  if(kind==='teamAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content team-award"><div class="cert-title">表彰状</div><div class="cert-subtitle">${esc(certificateRankLabel(data.rank||1))}</div><div class="cert-recipient">${esc(data.teamName||'チーム名')} <small>殿</small></div><div class="cert-record">総合記録　${esc(data.total||'--:--:--')}</div><div class="cert-body">あなたのチームは「${esc(eventName)}」において<br>頭書の成績を収められました<br>よってその健闘をたたえ ここに表彰します</div>${certificateCommonFoot(cfg)}</div></section>`;
+  if(kind==='individualAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content individual-award"><div class="cert-title">表彰状</div><div class="cert-subtitle">${esc(data.category||'個人賞')}</div><div class="cert-recipient">${esc(data.name||'選手名')} <small>殿</small></div><div class="cert-detail">${esc(data.teamName||'')}　${esc(data.legLabel||'')}</div><div class="cert-record">記録　${esc(data.lap||'--:--:--')}</div><div class="cert-body">あなたは「${esc(eventName)}」において<br>優秀な成績を収められました<br>よってその健闘をたたえ ここに表彰します</div>${certificateCommonFoot(cfg)}</div></section>`;
+  return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content record-certificate"><div class="cert-title">記録証</div><div class="cert-team">${esc(data.teamName||'チーム名')}</div><div class="cert-recipient">${esc(data.name||'選手名')} <small>殿</small></div><div class="record-table"><div><span>出場区間</span><strong>${esc(data.legLabel||'第1区間')}</strong></div><div><span>区間距離</span><strong>${esc(data.distance||'未設定')}</strong></div><div><span>記録</span><strong>${esc(data.lap||'--:--:--')}</strong></div><div><span>区間順位</span><strong>${esc(data.legRank||'—')}</strong></div></div><div class="cert-body compact">あなたの「${esc(eventName)}」における記録を<br>ここに証します</div>${certificateCommonFoot(cfg)}</div></section>`;
+}
+function certificatePrintStyles(){return `
+@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e7edf3;font-family:"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;color:#152535;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:10px;background:#102b47;color:#fff;text-align:center;font-family:sans-serif}.toolbar button{border:0;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}.cert-page{width:210mm;height:297mm;position:relative;margin:12px auto;background:#fff;overflow:hidden;page-break-after:always;box-shadow:0 8px 28px #0002}.cert-page:last-child{page-break-after:auto}.cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cert-content{position:absolute;inset:0;text-align:center}.cert-title{position:absolute;top:13%;left:10%;right:10%;font-size:24mm;font-weight:700;letter-spacing:.14em}.cert-subtitle{position:absolute;top:28%;left:12%;right:12%;font-size:11mm;font-weight:700}.cert-recipient{position:absolute;top:39%;left:12%;right:12%;font-size:11mm;font-weight:700;border-bottom:1px solid #566;display:inline-block;padding-bottom:3mm}.cert-recipient small{font-size:5mm;font-weight:500}.cert-detail{position:absolute;top:49%;left:12%;right:12%;font-size:5mm}.cert-record{position:absolute;top:54%;left:12%;right:12%;font-size:8mm;font-weight:700}.cert-body{position:absolute;top:63%;left:15%;right:15%;font-size:5.4mm;line-height:2}.cert-body.compact{top:69%}.cert-date{position:absolute;top:79%;left:15%;right:15%;font-size:4.8mm}.cert-issuer{position:absolute;top:83%;left:27%;right:18%;min-height:20mm;font-size:5mm;display:flex;align-items:center;justify-content:flex-end;gap:4mm}.cert-issuer span{font-size:4.2mm}.cert-issuer strong{font-size:5.2mm}.cert-seal-image{width:18mm;height:18mm;object-fit:contain}.cert-seal-text{width:18mm;height:18mm;border:1.2mm solid #c22;color:#c22;display:grid;place-items:center;font-family:"Yu Mincho",serif;font-size:4.2mm;font-weight:800;line-height:1.05;writing-mode:vertical-rl;letter-spacing:.08em}.cert-team{position:absolute;top:28%;left:12%;right:12%;font-size:5.5mm}.record-certificate .cert-recipient{top:34%}.record-table{position:absolute;top:48%;left:24%;right:24%;font-size:5mm;text-align:left}.record-table>div{display:grid;grid-template-columns:1fr 1.4fr;gap:8mm;border-bottom:1px solid #98aab7;padding:2.5mm 1mm}.record-table strong{text-align:right;font-size:5.4mm}.record-certificate .cert-date{top:79%}.record-certificate .cert-issuer{top:83%}@media print{body{background:#fff}.toolbar{display:none}.cert-page{margin:0;box-shadow:none}}`}
+function openCertificatePages(pages,title='証書プレビュー'){
+  if(!pages.length){toast('出力できるデータがありません');return;}const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${certificatePrintStyles()}</style></head><body><div class="toolbar"><button onclick="window.print()">PDF・印刷</button>　${esc(title)}（${pages.length}枚）</div>${pages.join('')}</body></html>`);w.document.close();
+}
+function sampleCertificateData(kind){
+  if(kind==='teamAward')return {rank:1,teamName:'サンプルチーム',total:'01:12:34.56'};
+  if(kind==='individualAward')return {category:'中学生・男子 最速',name:'大豊 太郎',teamName:'サンプルチーム',legLabel:legLabel(1),lap:'00:08:24.00'};
+  return {name:'大豊 花子',teamName:'サンプルチーム',legLabel:legLabel(1),distance:legDistanceLabel(1)||'2.5km',lap:'00:09:12.00',legRank:'3位'};
+}
+async function previewCertificate(kind){await refreshCertificateAssetUrls();openCertificatePages([certificatePageHtml(kind,sampleCertificateData(kind))],'証書サンプル');}
+function allRunnerCertificateRecords(){
+  const passes=computedPasses().slice().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg),byLeg={};
+  passes.forEach(p=>{const lap=lapTime(p);if(lap==null)return;(byLeg[p.leg]??=[]).push({p,lap});});
+  const ranks={};Object.entries(byLeg).forEach(([leg,rows])=>{rows.sort((a,b)=>a.lap-b.lap);let last=null,rank=0;rows.forEach((x,i)=>{if(x.lap!==last)rank=i+1;last=x.lap;ranks[`${x.p.teamNo}:${x.p.leg}`]=rank;});});
+  return passes.map(p=>{const r=runnerFor(p.teamNo,p.leg)||{};return {name:r.name||'走者未登録',teamName:p.teamName,legLabel:legLabel(p.leg),distance:legDistanceLabel(p.leg)||'未設定',lap:fmtClock(lapTime(p)),legRank:ranks[`${p.teamNo}:${p.leg}`]?`${ranks[`${p.teamNo}:${p.leg}`]}位`:'—'};});
+}
+async function printAwardCertificates(){
+  await refreshCertificateAssetUrls();const pages=[];awardTeamRows().forEach(r=>pages.push(certificatePageHtml('teamAward',{rank:r.rank,teamName:r.team.teamName,total:fmtClock(r.total)})));
+  individualAwardGroups().forEach(g=>g.winners.forEach(w=>pages.push(certificatePageHtml('individualAward',{category:g.label,name:w.name,teamName:w.teamName,legLabel:legLabel(w.leg),lap:fmtClock(w.lap)}))));
+  if(!pages.length){pages.push(certificatePageHtml('teamAward',sampleCertificateData('teamAward')),certificatePageHtml('individualAward',sampleCertificateData('individualAward')));toast('正式結果がないためサンプルを出力します');}openCertificatePages(pages,'表彰状');
+}
+async function printRecordCertificates(){
+  await refreshCertificateAssetUrls();let records=allRunnerCertificateRecords();if(!records.length){records=[sampleCertificateData('recordCertificate')];toast('正式記録がないためサンプルを出力します');}openCertificatePages(records.map(r=>certificatePageHtml('recordCertificate',r)),'個人記録証');
+}
+
 function renderParticipantFormalResults(){
   const cfg=state.awards||freshState().awards,panel=document.getElementById('participantFormalResultsPanel');if(!panel)return;
   panel.classList.toggle('hidden',!cfg.formalResultsPublished);if(!cfg.formalResultsPublished)return;
@@ -707,7 +816,7 @@ function renderAdmin(){
   const pill=document.getElementById('raceStatusPill');pill.textContent=statusLabel();pill.className='status-pill '+(state.meta.raceStatus==='running'?'running':state.meta.raceStatus==='finished'?'finished':'');
   document.getElementById('startRaceBtn').disabled=state.meta.raceStatus==='running';document.getElementById('finishRaceBtn').disabled=state.meta.raceStatus!=='running';
   renderEventSettings();renderEntryQr();renderApplications();renderTeamManagement();
-  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderSyncStatus();
+  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderCertificateSettings();renderSyncStatus();
 }
 document.getElementById('startRaceBtn').addEventListener('click',()=>{
   if(!teamList().length&&!confirm('チーム登録がありません。このまま開始しますか？'))return;if(!confirm('全チーム一斉スタートとして計測を開始します。よろしいですか？'))return;
@@ -807,13 +916,26 @@ function renderParticipant(){
   }).join('');
 }
 
+
+// Certificate settings / template controls
+const saveCertBtn=document.getElementById('saveCertificateSettingsBtn');
+if(saveCertBtn)saveCertBtn.addEventListener('click',()=>{saveCertificateConfig({organizerName:document.getElementById('certificateOrganizerName')?.value.trim()||'',issuerName:document.getElementById('certificateIssuerName')?.value.trim()||'大会実行委員長',sealMode:document.getElementById('certificateSealMode')?.value||'text',sealText:document.getElementById('certificateSealText')?.value.trim()||'大豊学園'});toast('証書設定を保存しました');});
+document.getElementById('certificateSealUpload')?.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)uploadCertificateAsset('seal',f);e.target.value='';});
+document.getElementById('clearCertificateSealBtn')?.addEventListener('click',()=>{certificateResolvedUrls.seal='';saveCertificateConfig({sealImagePath:'',sealMode:'text'});toast('印画像を解除し、文字印へ戻しました');});
+document.querySelectorAll('[data-download-cert-template]').forEach(b=>b.addEventListener('click',()=>downloadCertificateTemplate(b.dataset.downloadCertTemplate)));
+document.querySelectorAll('[data-upload-cert-template]').forEach(inp=>inp.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)uploadCertificateAsset(inp.dataset.uploadCertTemplate,f);e.target.value='';}));
+document.querySelectorAll('[data-reset-cert-template]').forEach(b=>b.addEventListener('click',()=>{certificateResolvedUrls[b.dataset.resetCertTemplate]='';saveCertificateConfig({templates:{[b.dataset.resetCertTemplate]:''}});toast('標準テンプレートへ戻しました');}));
+document.querySelectorAll('[data-preview-cert]').forEach(b=>b.addEventListener('click',()=>previewCertificate(b.dataset.previewCert)));
+document.getElementById('printAwardCertificatesBtn')?.addEventListener('click',printAwardCertificates);
+document.getElementById('printRecordCertificatesBtn')?.addEventListener('click',printRecordCertificates);
+
 // ---------- Demo / reset / export ----------
 const demoNames=['大豊A','大杉A','豊永A','清流A','北山A','南風A','桜丘A','みどりA','希望A','つばさA','大豊B','大杉B'];
 function demoTeams(){const obj={};demoNames.forEach((name,i)=>{const no=String(i+1);obj[teamKey(no)]={teamNo:no,teamName:name,accessCode:String(1001+i),runners:Array.from({length:getLegCount()},(_,j)=>({name:`選手${j+1}`,sex:j%2?'女':'男',ageGroup:j%4===0?'小学生':j%4===1?'中学生':j%4===2?'一般（～29歳）':'一般（30歳～）',leg:j+1}))};});return obj;}
 document.getElementById('loadDemoBtn').addEventListener('click',async()=>{if(!confirm('デモ12チームを読み込み、現在の計測データを初期化しますか？'))return;const teams=demoTeams();if(supabaseMode){for(const t of Object.values(teams)){if(!(await setTeamSecret(t.teamNo,t.accessCode)))return;}}queueWrite('teams',teams);clearRaceMeasurements();toast('デモ12チームを読み込みました');});
 document.getElementById('resetBtn').addEventListener('click',async()=>{if(!confirm('申込・チーム・計測記録・設定をすべて初期化します。よろしいですか？'))return;if(supabaseMode&&supabaseReady){await sb.rpc('ekiden_clear_team_codes');privateTeamCodes={};}const f=freshState();['meta','settings','applications','teams','officialMeasurements','teamMeasurements','adoptions','overrides','credentials','locks','notices','awards'].forEach(k=>queueWrite(k,f[k]));toast('初期化しました');});
 document.getElementById('exportResultsBtn').addEventListener('click',()=>{
-  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v12.csv','text/csv;charset=utf-8');
+  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v13.csv','text/csv;charset=utf-8');
 });
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function downloadText(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
