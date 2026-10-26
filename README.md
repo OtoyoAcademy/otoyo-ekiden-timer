@@ -1,6 +1,13 @@
-# Otoyo Ekiden Timer v0.14.2
+# Otoyo Ekiden Timer v0.14.3
 
-v0.14.2は、Supabaseのsafe-update設定で「DELETE requires a WHERE clause」が出る環境に対応した修正版です。Supabase SQL Editorで `supabase-patch-v0.14.2.sql` を1回実行してください。
+v0.14.3 は、年度別大会管理の小修正版です。**Supabaseの追加SQLは不要**です。
+
+## v0.14.3 の変更
+
+- 管理者の「過去大会」一覧から、試行用・不要な過去大会を完全削除できるようにしました。
+- 削除時は確認ダイアログを表示し、現在運用中の大会には影響しません。
+- 過去大会専用の証書テンプレート／印画像がある場合は、Storage上の不要画像も整理します。
+- 区間距離の入力欄を広げ、小数（例：`0.5`、`2.35`、`12.35`）が見切れにくいレイアウトへ修正しました。
 
 # otoyo-ekiden-timer v0.14
 

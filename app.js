@@ -152,6 +152,22 @@ async function persistEventArchive(archive){
   if(supabaseMode&&supabaseReady&&sb){const {error}=await sb.from('ekiden_kv').upsert({path,value:archive,updated_at:new Date().toISOString()},{onConflict:'path'});if(error){console.error(error);return false;}}
   setByPath(state,path,archive);saveLocalSnapshot();renderCurrent();return true;
 }
+async function deleteEventArchive(id){
+  const a=state.eventArchives?.[id];if(!a)return;
+  if(supabaseMode&&!supabaseConnected){toast('過去大会の削除はSupabaseがONLINEのときに行ってください');return;}
+  if(pendingQueue.length){toast('未送信データがあります。同期が完了してから削除してください');return;}
+  const label=`${a.year||''}年度 ${a.name||'過去大会'}`.trim();
+  if(!confirm(`「${label}」を過去大会から完全に削除しますか？\n\nこの操作は元に戻せません。現在運用中の大会には影響しません。`))return;
+  let assetCleanupFailed=false;
+  if(supabaseMode&&supabaseReady&&sb){
+    const safeEvent=String(id).replace(/[^a-zA-Z0-9_-]/g,'_'),cert=a.settings?.certificate||{};
+    const paths=[cert.sealImagePath,...Object.values(cert.templates||{})].filter(p=>typeof p==='string'&&p.startsWith(`certificates/${safeEvent}/`));
+    if(paths.length){const {error}=await sb.storage.from(CERT_BUCKET).remove([...new Set(paths)]);if(error){console.warn('archive asset cleanup failed',error);assetCleanupFailed=true;}}
+    const {error}=await sb.from('ekiden_kv').delete().eq('path',`eventArchives/${id}`);if(error){console.error(error);toast('過去大会の削除に失敗しました');return;}
+  }
+  removeByPath(state,`eventArchives/${id}`);if(selectedArchiveId===id)selectedArchiveId=null;saveLocalSnapshot();renderCurrent();
+  toast(assetCleanupFailed?'過去大会を削除しました（証書画像の整理のみ未完了）':'過去大会を削除しました');
+}
 function copySettingsForNewEvent(source,name){
   const base=freshState().settings,src=source?.settings||null;
   if(!src)return {...base,eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,legDistances:{},certificate:structuredClone(base.certificate)};
@@ -170,10 +186,11 @@ function renderEventManager(){
   if(sel){const keep=sel.value;sel.innerHTML=`<option value="current">現在大会の設定をコピー</option><option value="none">設定をコピーしない</option>${eventArchiveList().map(a=>`<option value="archive:${esc(a.id)}">${esc(a.year||'')}年度 ${esc(a.name||'過去大会')} の設定</option>`).join('')}`;if([...sel.options].some(o=>o.value===keep))sel.value=keep;}
   const archives=eventArchiveList();
   if(!archives.length)list.innerHTML='<div class="empty-state">過去大会はまだありません。新しい大会を作成すると、現在大会が自動的にここへ保存されます。</div>';
-  else list.innerHTML=`<table class="data-table"><thead><tr><th>年度</th><th>大会名</th><th>開催日</th><th>チーム</th><th>正式記録</th><th>保存日時</th><th>操作</th></tr></thead><tbody>${archives.map(a=>`<tr><td><b>${esc(a.year||'—')}</b></td><td>${esc(a.name||'')}</td><td>${esc(formatArchiveDate(a.settings?.eventDate))}</td><td>${Number(a.counts?.teams||Object.keys(a.teams||{}).length)}</td><td>${Number(a.resultSummary?.teamResults?.length||0)}チーム</td><td>${a.archivedAt?new Date(a.archivedAt).toLocaleString('ja-JP'):''}</td><td><button class="tiny-btn" data-view-archive="${esc(a.id)}">閲覧</button> <button class="tiny-btn" data-copy-archive="${esc(a.id)}">設定をコピー</button> <button class="text-btn" data-export-archive="${esc(a.id)}">結果CSV</button></td></tr>`).join('')}</tbody></table>`;
+  else list.innerHTML=`<table class="data-table"><thead><tr><th>年度</th><th>大会名</th><th>開催日</th><th>チーム</th><th>正式記録</th><th>保存日時</th><th>操作</th></tr></thead><tbody>${archives.map(a=>`<tr><td><b>${esc(a.year||'—')}</b></td><td>${esc(a.name||'')}</td><td>${esc(formatArchiveDate(a.settings?.eventDate))}</td><td>${Number(a.counts?.teams||Object.keys(a.teams||{}).length)}</td><td>${Number(a.resultSummary?.teamResults?.length||0)}チーム</td><td>${a.archivedAt?new Date(a.archivedAt).toLocaleString('ja-JP'):''}</td><td><button class="tiny-btn" data-view-archive="${esc(a.id)}">閲覧</button> <button class="tiny-btn" data-copy-archive="${esc(a.id)}">設定をコピー</button> <button class="text-btn" data-export-archive="${esc(a.id)}">結果CSV</button> <button class="tiny-btn red" data-delete-archive="${esc(a.id)}">削除</button></td></tr>`).join('')}</tbody></table>`;
   list.querySelectorAll('[data-view-archive]').forEach(b=>b.addEventListener('click',()=>{selectedArchiveId=b.dataset.viewArchive;renderEventManager();document.getElementById('eventArchiveDetail')?.scrollIntoView({behavior:'smooth',block:'nearest'});}));
   list.querySelectorAll('[data-copy-archive]').forEach(b=>b.addEventListener('click',()=>{if(sel)sel.value=`archive:${b.dataset.copyArchive}`;const a=state.eventArchives?.[b.dataset.copyArchive];if(a&&n)n.value=a.name||'';if(a&&y)y.value=String((Number(a.year)||year)+1);toast('コピー元に設定しました');}));
   list.querySelectorAll('[data-export-archive]').forEach(b=>b.addEventListener('click',()=>exportArchivedResults(b.dataset.exportArchive)));
+  list.querySelectorAll('[data-delete-archive]').forEach(b=>b.addEventListener('click',()=>deleteEventArchive(b.dataset.deleteArchive)));
   if(detail){const a=selectedArchiveId&&state.eventArchives?.[selectedArchiveId];if(!a){detail.classList.add('hidden');detail.innerHTML='';}else{detail.classList.remove('hidden');detail.innerHTML=archiveDetailHtml(a);detail.querySelector('[data-close-archive]')?.addEventListener('click',()=>{selectedArchiveId=null;renderEventManager();});}}
 }
 function archiveDetailHtml(a){
