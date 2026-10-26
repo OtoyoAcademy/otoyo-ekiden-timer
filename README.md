@@ -1,6 +1,6 @@
-# Otoyo Ekiden Timer v0.14.1
+# Otoyo Ekiden Timer v0.14.2
 
-v0.14の年度切替RPC認識を安定化する修正版です。Supabase SQL Editorで `supabase-patch-v0.14.1.sql` を1回実行してください。エラー時は画面にSupabaseのエラーメッセージも表示します。
+v0.14.2は、Supabaseのsafe-update設定で「DELETE requires a WHERE clause」が出る環境に対応した修正版です。Supabase SQL Editorで `supabase-patch-v0.14.2.sql` を1回実行してください。
 
 # otoyo-ekiden-timer v0.14
 

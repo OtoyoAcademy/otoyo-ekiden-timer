@@ -243,7 +243,7 @@ set search_path = public
 as $$
 begin
   if public.ekiden_current_role() <> 'admin' then raise exception 'Admin required'; end if;
-  delete from public.ekiden_team_secrets;
+  delete from public.ekiden_team_secrets where true;
   return true;
 end;
 $$;
@@ -256,9 +256,9 @@ set search_path = public
 as $$
 begin
   if public.ekiden_current_role() <> 'admin' then raise exception 'Admin required'; end if;
-  delete from public.ekiden_locks;
+  delete from public.ekiden_locks where true;
   delete from public.ekiden_sessions where user_id <> auth.uid();
-  delete from public.ekiden_team_secrets;
+  delete from public.ekiden_team_secrets where true;
   return true;
 end;
 $$;
