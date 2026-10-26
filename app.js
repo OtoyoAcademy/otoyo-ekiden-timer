@@ -199,7 +199,7 @@ async function createNewAnnualEvent(){
   const msg=`現在の「${state.settings?.eventName||'大会'}」を過去大会として保存し、${year}年度「${name}」へ切り替えます。\n\n申込者・チーム・計測記録・結果は新大会へ引き継ぎません。開催日と申込締切も未設定になります。続けますか？`;
   if(!confirm(msg))return;
   const archive=buildCurrentEventArchive();if(!(await persistEventArchive(archive))){toast('現在大会のアーカイブ保存に失敗したため、年度切替を中止しました');return;}
-  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error(error);toast('年度切替の安全処理に失敗しました。v0.14用SQLパッチを確認してください');return;}}privateTeamCodes={};
+  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error('ekiden_prepare_new_event failed',error);const msg=String(error.message||error.details||'').slice(0,120);toast(`年度切替の安全処理に失敗しました${msg?`：${msg}`:''}`);return;}}privateTeamCodes={};
   if(!(await purgeCurrentEventRows())){toast('旧大会データの整理に失敗しました。年度切替を中止しました');return;}
   const f=freshState(),newId=makeNewEventId(year),newSettings=copySettingsForNewEvent(source,name),newAwards=copyAwardsForNewEvent(source),newMeta={...f.meta,eventId:newId,eventYear:year,eventCreatedAt:syncedNow(),version:14,notice:DEFAULT_NOTICE};
   queueWrite('meta',newMeta);queueWrite('settings',newSettings);queueWrite('applications',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',{operators:{},teams:{}});queueWrite('notices',{});queueWrite('awards',newAwards);
@@ -1041,7 +1041,7 @@ document.getElementById('loadDemoBtn').addEventListener('click',async()=>{if(!co
 document.getElementById('resetBtn').addEventListener('click',async()=>{
   if(!confirm('現在大会の申込・チーム・計測記録・設定を初期化します。過去大会アーカイブと管理者・計測係コードは残ります。よろしいですか？'))return;
   if(supabaseMode&&!supabaseConnected){toast('SupabaseがONLINEのときに初期化してください');return;}if(pendingQueue.length){toast('未送信データの同期完了後に初期化してください');return;}
-  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error(error);toast('端末セッションの整理に失敗しました。v0.14用SQLパッチを確認してください');return;}}privateTeamCodes={};
+  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error('ekiden_prepare_new_event failed',error);const msg=String(error.message||error.details||'').slice(0,120);toast(`端末セッションの整理に失敗しました${msg?`：${msg}`:''}`);return;}}privateTeamCodes={};
   if(!(await purgeCurrentEventRows())){toast('現在大会データの整理に失敗しました');return;}
   const f=freshState(),keep={eventId:currentEventId(),eventYear:currentEventYear(),eventCreatedAt:state.meta?.eventCreatedAt||syncedNow()};
   queueWrite('meta',{...f.meta,...keep,version:14});queueWrite('settings',f.settings);queueWrite('applications',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',f.locks);queueWrite('notices',{});queueWrite('awards',f.awards);toast('現在大会を初期化しました');
