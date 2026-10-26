@@ -1,98 +1,10 @@
-# Firebase → Supabase 移行手順（駅伝アプリ v0.8）
+# Supabase migration notes - v0.15
 
-## 1. Supabaseで新規プロジェクトを作成
+`supabase-patch-v0.15.sql` を1回実行してください。
 
-学校で管理するSupabaseプロジェクトを作成します。
+追加されるRPC: `public.ekiden_submit_funrun(text,jsonb)`
 
-## 2. Anonymous Sign-Ins を有効化
-
-Supabase Dashboard → Authentication で **Anonymous Sign-Ins** を有効にします。
-このアプリは、参加者・申込者を含む各ブラウザを匿名認証し、RLSで権限を分けます。
-
-## 3. SQLを実行
-
-Dashboard → SQL Editor で `supabase-setup.sql` の内容をすべて実行します。
-
-このSQLで以下を作ります。
-
-- リアルタイム同期用 `ekiden_kv`
-- 管理者・計測係・チームのセッション
-- チームアクセスコードの保護領域
-- 端末重複防止ロック
-- RLS
-- Realtime publication
-- ログイン・コード変更用RPC
-
-初期コードはこれまでと同じです。
-
-- 管理者: `1234`
-- 計測A: `1111`
-- 計測B: `2222`
-- 計測C: `3333`
-
-本番前に管理者画面から変更してください。
-
-## 4. URLとPublishable Keyを設定
-
-Supabase Dashboard の **Connect** から、
-
-- Project URL
-- Publishable key (`sb_publishable_...`)
-
-を確認して `supabase-config.js` に入力します。
-
-**Secret key / service_role key は絶対にGitHubへ置かないでください。**
-
-```js
-window.EKIDEN_SUPABASE_CONFIG = {
-  url: "https://xxxxx.supabase.co",
-  publishableKey: "sb_publishable_xxxxx"
-};
-```
-
-## 5. GitHub Pagesへアップロード
-
-このフォルダの中身を `OtoyoAcademy/otoyo-ekiden-timer` のリポジトリ直下へ上書きします。
-
-GitHub Pages:
-
-- Source: Deploy from a branch
-- Branch: main
-- Folder: /(root)
-
-## 6. 接続確認
-
-公開URLを開き、上部の同期表示が **Supabase同期中** になれば接続成功です。
-
-管理者ログイン → デモ12チーム読込 → 別端末の参加者画面で反映されることを確認します。
-
-## Firebaseからのデータについて
-
-v0.8は保存先をSupabaseへ切り替えるため、Firebase Realtime Databaseの既存データは自動移行しません。
-現在がダミーデータ中心なら、Supabase側でデモデータを読み直すのが最も安全です。
-
-
-## v0.13 証書テンプレート追加時
-
-既存の `school-events` プロジェクトへv0.13を適用する場合は、`supabase-patch-v0.13.sql` をSQL Editorで1回実行します。
-
-このパッチは次を行います。
-
-- 公開済み正式結果・表彰設定を参加者画面から読めるよう `awards` の読み取りを追加
-- 証書テンプレート・印画像専用の非公開 Supabase Storage bucket `ekiden-assets` を作成
-- `certificates/` 配下の読み取り・アップロード・更新・削除を駅伝アプリの管理者セッションだけに許可
-- 画像1ファイルの上限を3MBに設定
-- PNG / JPEG / WebP のみ許可
-
-完成した表彰状・記録証PDF自体はStorageへ保存しません。背景テンプレートと印画像だけを保存し、PDFはブラウザ側で都度生成します。
-
-
-## v0.14 年度別大会管理追加時
-
-既存の `school-events` プロジェクトへv0.14を適用する場合は、`supabase-patch-v0.14.sql` をSQL Editorで1回実行します。
-
-このパッチは `ekiden_prepare_new_event()` RPCを追加します。年度切替時に管理者セッションを残して、旧大会の計測係・チームセッション、端末ロック、チームアクセスコードを削除します。
-
-過去大会データは `ekiden_kv` の `eventArchives/...` に保存されます。既存RLSでは管理者だけがこれらの行を読めるため、代表者の連絡先等を参加者画面から読み出すことはできません。
-
-証書テンプレートと印画像は、v0.14以降 `certificates/<大会ID>/...` に保存します。v0.13で保存済みの旧パスもそのまま利用できます。
+- 匿名認証済み利用者がファンラン受付を安全に送信するための関数です。
+- `funRunEntries/*` は一般のSELECT対象には追加しません。管理者のみ一覧取得できます。
+- 受付時に `attended=false` をサーバー側で強制します。参加済み処理は管理者のみ可能です。
+- Storageの追加バケットは不要です。既存の非公開 `ekiden-assets` をファンラン参加証テンプレートにも使用します。

@@ -7,9 +7,9 @@
   <title>駅伝タイム計測 | Ekiden Timer</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=0.14.5" />
+  <link rel="stylesheet" href="styles.css?v=0.15" />
   <style>
-    /* v0.14.5: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
+    /* v0.15: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
     @media(max-width:640px){.leg-distance-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
     @media(max-width:420px){.leg-distance-grid{grid-template-columns:1fr!important;}}
@@ -53,9 +53,17 @@
           </button>
         </div>
 
+        <div class="entry-cta-wrap" id="funRunTopWrap">
+          <button class="entry-cta funrun-cta" data-go="funrun-entry">
+            <span class="entry-cta-icon">🏃</span>
+            <span><strong id="funRunTopTitle">ファンラン 参加受付</strong><small id="funRunTopStatus">当日まで受付中</small></span>
+            <span class="role-arrow">›</span>
+          </button>
+        </div>
+
         <div class="role-buttons" aria-label="利用する画面を選択">
           <button class="role-button participant" data-go="participant">
-            <span class="role-icon image-icon"><img src="assets/participant-icon.png" alt="" /></span><span class="role-copy"><strong>参加者・閲覧者</strong><small>お知らせ・チーム記録</small></span><span class="role-arrow">›</span>
+            <span class="role-icon image-icon"><img src="assets/participant-icon.png" alt="" /></span><span class="role-copy"><strong>参加者・閲覧者</strong><small>お知らせ・チーム記録・正式結果</small></span><span class="role-arrow">›</span>
           </button>
           <button class="role-button timer" data-go="timer-login">
             <span class="role-icon">⏱</span><span class="role-copy"><strong>計測係</strong><small>運営計測・チーム参考計測</small></span><span class="role-arrow">›</span>
@@ -137,6 +145,45 @@
         </div>
       </section>
 
+      <!-- FUN RUN ENTRY -->
+      <section id="screen-funrun-entry" class="screen entry-screen">
+        <div class="panel entry-panel funrun-entry-panel">
+          <div class="entry-heading">
+            <div><small class="eyebrow">FUN RUN</small><h2 id="funRunEntryTitle">ファンラン 参加受付</h2></div>
+            <span class="status-pill running" id="funRunOpenBadge">受付中</span>
+          </div>
+          <div class="funrun-info-box">タイム計測はありません。当日参加も受け付けます。参加後は「がんばったで賞」を発行できます。</div>
+          <div id="funRunClosedMessage" class="warning-box hidden"></div>
+          <form id="funRunEntryForm">
+            <fieldset>
+              <legend>参加者</legend>
+              <div class="form-grid two">
+                <label>参加者氏名 <span class="req">必須</span><input id="funRunName" required maxlength="60" placeholder="例：大豊 はな" /></label>
+                <label>年齢 <span class="req">必須</span><input id="funRunAge" required type="number" min="0" max="100" inputmode="numeric" placeholder="例：5" /></label>
+                <label>区分<select id="funRunCategory"><option>未就学</option><option>小学生</option><option>中学生</option><option>高校生</option><option>一般</option></select></label>
+                <label>保護者・付き添い氏名<input id="funRunGuardian" maxlength="60" placeholder="任意" /></label>
+                <label>連絡先電話番号<input id="funRunPhone" inputmode="tel" placeholder="任意" /></label>
+                <label>備考<input id="funRunNotes" maxlength="120" placeholder="任意" /></label>
+              </div>
+              <p class="form-note">※ファンランは順位・タイムを競いません。大会運営に必要な範囲で情報を使用します。</p>
+            </fieldset>
+            <label class="agree-line"><input id="funRunAgree" type="checkbox" required /> 入力内容を確認し、大会運営のために利用されることに同意します。</label>
+            <button class="primary-btn full entry-submit" type="submit" id="funRunSubmitBtn">この内容で申し込む</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="screen-funrun-complete" class="screen auth-screen">
+        <div class="panel compact complete-card">
+          <div class="complete-mark">✓</div>
+          <h2>ファンランの受付が完了しました</h2>
+          <p id="funRunCompleteText">当日は受付へお越しください。</p>
+          <div class="receipt-box"><small>受付番号</small><strong id="funRunReceiptNo">---</strong></div>
+          <p class="hint">タイム計測はありません。参加後に大会事務局から「がんばったで賞」を発行できます。</p>
+          <button class="primary-btn full" data-go="top">トップへ戻る</button>
+        </div>
+      </section>
+
       <!-- ADMIN LOGIN -->
       <section id="screen-admin-login" class="screen auth-screen">
         <div class="panel compact">
@@ -193,7 +240,7 @@
           </article>
 
           <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.14.5</span></div>
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.15</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -202,7 +249,7 @@
                 <label>新しい大会名<input id="newEventName" placeholder="例：大豊学園駅伝大会" /></label>
                 <label>設定のコピー元<select id="newEventCopySource"><option value="current">現在大会の設定をコピー</option><option value="none">設定をコピーしない</option></select></label>
               </div>
-              <div class="new-event-copy-note">コピーするもの：会場・区間数・区間距離・表彰設定・証書テンプレート・ハンコ設定・事務局設定。<br>コピーしないもの：開催日・申込締切・申込受付状態・申込者・チーム・計測記録・結果。</div>
+              <div class="new-event-copy-note">コピーするもの：会場・区間数・区間距離・表彰設定・証書テンプレート・ハンコ設定・ファンラン設定・事務局設定。<br>コピーしないもの：開催日・申込締切・受付状態・駅伝申込者・ファンラン参加者・チーム・計測記録・結果。</div>
               <button class="primary-btn" id="createNewEventBtn" type="button">新しい大会を作成</button>
             </div>
             <div class="event-archive-heading"><h3>過去大会</h3><span>閲覧専用</span></div>
@@ -242,6 +289,15 @@
               <div id="legDistanceSummary" class="distance-summary">0区間設定済み</div>
             </div>
             <label class="toggle-line"><input type="checkbox" id="settingEntryOpen" /> 駅伝の参加申込を受け付ける</label>
+            <div class="funrun-setting-box">
+              <h3>ファンラン設定</h3>
+              <div class="form-grid two">
+                <label>表示名<input id="settingFunRunTitle" placeholder="ファンラン" /></label>
+                <label>参加証の名称<input id="settingFunRunCertificateTitle" placeholder="がんばったで賞" /></label>
+              </div>
+              <label class="toggle-line"><input type="checkbox" id="settingFunRunEnabled" /> ファンラン機能を使用する</label>
+              <label class="toggle-line"><input type="checkbox" id="settingFunRunEntryOpen" /> ファンランの参加受付を行う（締切なし・当日受付可）</label>
+            </div>
             <button class="primary-btn" id="saveEventSettingsBtn">大会設定を保存</button>
           </article>
 
@@ -268,7 +324,7 @@
           </article>
 
           <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.14</span></div>
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.15</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -303,10 +359,17 @@
                 <div class="template-status" id="recordCertificateTemplateStatus">標準テンプレート</div>
                 <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="recordCertificate" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="recordCertificate" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="recordCertificate" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="recordCertificate" type="button">プレビュー</button></div>
               </div>
+              <div class="certificate-template-card">
+                <div class="certificate-template-head"><h3>ファンラン参加証</h3><span>がんばったで賞</span></div>
+                <img id="funRunAwardTemplatePreview" alt="ファンラン参加証テンプレート" />
+                <div class="template-status" id="funRunAwardTemplateStatus">標準テンプレート</div>
+                <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="funRunAward" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="funRunAward" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="funRunAward" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="funRunAward" type="button">プレビュー</button></div>
+              </div>
             </div>
             <div class="certificate-output-actions">
               <button class="primary-btn" id="printAwardCertificatesBtn" type="button">表彰状を一括PDF・印刷</button>
               <button class="secondary-btn" id="printRecordCertificatesBtn" type="button">記録証を一括PDF・印刷</button>
+              <button class="secondary-btn" id="printFunRunCertificatesBtn" type="button">ファンラン参加証を一括PDF・印刷</button>
               <span class="hint">ブラウザの印刷画面から「PDFに保存」を選べます。</span>
             </div>
           </article>
@@ -317,6 +380,28 @@
             <div class="qr-box"><div id="entryQrBox" aria-label="参加申込QRコード"></div></div>
             <div class="action-row wrap"><button class="secondary-btn" id="refreshQrBtn">QRを更新</button><button class="primary-btn" id="downloadQrBtn">PNG保存</button></div>
             <div class="copy-url" id="entryUrlText"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-heading"><h2>ファンラン受付QR</h2><span class="mini-badge">当日受付</span></div>
+            <p>ファンラン参加受付ページへ直接開くQRコードです。</p>
+            <div class="qr-box"><div id="funRunQrBox" aria-label="ファンラン受付QRコード"></div></div>
+            <div class="action-row wrap"><button class="secondary-btn" id="refreshFunRunQrBtn">QRを更新</button><button class="primary-btn" id="downloadFunRunQrBtn">PNG保存</button></div>
+            <div class="copy-url" id="funRunUrlText"></div>
+          </article>
+
+          <article class="panel wide funrun-admin-panel">
+            <div class="panel-heading"><h2>ファンラン参加者</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoFunRunBtn">ダミー参加者を追加</button><button class="text-btn" id="exportFunRunBtn">CSV出力</button><button class="primary-btn" id="printFunRunAttendedBtn">参加済み分を一括PDF・印刷</button></div></div>
+            <div class="application-stats" id="funRunStats"></div>
+            <div class="funrun-quick-entry">
+              <strong>当日受付を追加</strong>
+              <input id="adminFunRunName" placeholder="参加者氏名" />
+              <input id="adminFunRunAge" type="number" min="0" max="100" inputmode="numeric" placeholder="年齢" />
+              <select id="adminFunRunCategory"><option>未就学</option><option>小学生</option><option>中学生</option><option>高校生</option><option>一般</option></select>
+              <button class="secondary-btn" id="adminAddFunRunBtn" type="button">当日受付を追加</button>
+            </div>
+            <p class="hint">ファンランは承認不要です。「参加済み」にすると、参加証の一括出力対象になります。</p>
+            <div id="funRunList" class="table-wrap"></div>
           </article>
 
           <article class="panel wide">
@@ -463,6 +548,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=0.14.5"></script>
+  <script type="module" src="app.js?v=0.15"></script>
 </body>
 </html>
