@@ -7,7 +7,13 @@
   <title>駅伝タイム計測 | Ekiden Timer</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=0.14.5" />
+  <style>
+    /* v0.14.5: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
+    .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+    @media(max-width:640px){.leg-distance-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
+    @media(max-width:420px){.leg-distance-grid{grid-template-columns:1fr!important;}}
+  </style>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -187,7 +193,7 @@
           </article>
 
           <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.14.4</span></div>
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.14.5</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -457,6 +463,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=0.14.5"></script>
 </body>
 </html>
