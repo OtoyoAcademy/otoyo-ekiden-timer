@@ -186,6 +186,24 @@
             <div class="sync-line"><span>時刻補正</span><strong id="serverOffsetLabel">0 ms</strong></div>
           </article>
 
+          <article class="panel wide event-manager-panel">
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.14</span></div>
+            <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
+            <div id="currentEventSummary" class="current-event-summary"></div>
+            <div class="new-event-box">
+              <div class="new-event-grid">
+                <label>新しい年度<input id="newEventYear" type="number" min="2000" max="2100" inputmode="numeric" placeholder="例：2027" /></label>
+                <label>新しい大会名<input id="newEventName" placeholder="例：大豊学園駅伝大会" /></label>
+                <label>設定のコピー元<select id="newEventCopySource"><option value="current">現在大会の設定をコピー</option><option value="none">設定をコピーしない</option></select></label>
+              </div>
+              <div class="new-event-copy-note">コピーするもの：会場・区間数・区間距離・表彰設定・証書テンプレート・ハンコ設定・事務局設定。<br>コピーしないもの：開催日・申込締切・申込受付状態・申込者・チーム・計測記録・結果。</div>
+              <button class="primary-btn" id="createNewEventBtn" type="button">新しい大会を作成</button>
+            </div>
+            <div class="event-archive-heading"><h3>過去大会</h3><span>閲覧専用</span></div>
+            <div id="eventArchiveList" class="table-wrap"></div>
+            <div id="eventArchiveDetail" class="event-archive-detail hidden"></div>
+          </article>
+
           <article class="panel">
             <div class="panel-heading"><h2>アクセスコード設定</h2><span class="mini-badge">第1段階</span></div>
             <p>空欄は変更しません。実運用前に初期コードから変更してください。</p>
@@ -244,7 +262,7 @@
           </article>
 
           <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.13</span></div>
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.14</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -357,8 +375,8 @@
 
           <article class="panel wide danger-zone">
             <div class="panel-heading"><h2>試作データ</h2></div>
-            <p>画面確認用の12チームを読み込むか、全データを初期化できます。</p>
-            <div class="action-row"><button class="secondary-btn" id="loadDemoBtn">デモ12チームを読込</button><button class="danger-btn" id="resetBtn">全データを初期化</button></div>
+            <p>画面確認用の12チームを読み込むか、現在大会の試作データを初期化できます。過去大会アーカイブは残ります。</p>
+            <div class="action-row"><button class="secondary-btn" id="loadDemoBtn">デモ12チームを読込</button><button class="danger-btn" id="resetBtn">現在大会を初期化</button></div>
           </article>
         </div>
       </section>

@@ -1,6 +1,6 @@
-const STORAGE_KEY = 'ekiden_timer_v13_state';
-const QUEUE_KEY = 'ekiden_timer_v13_queue';
-const DEVICE_KEY = 'ekiden_timer_v13_device';
+const STORAGE_KEY = 'ekiden_timer_v14_state';
+const QUEUE_KEY = 'ekiden_timer_v14_queue';
+const DEVICE_KEY = 'ekiden_timer_v14_device';
 const ROOT_PATH = (window.EKIDEN_APP_OPTIONS && window.EKIDEN_APP_OPTIONS.rootPath) || 'ekidenTimerV02';
 const PASSAGE_WINDOW_MS = 2500;
 const SPREAD_WARNING_MS = 500;
@@ -24,12 +24,13 @@ let realtimeChannel = null;
 let privateTeamCodes = {};
 let serverTimeTimer = null;
 let heartbeatTimer = null;
+let selectedArchiveId = null;
 let state = loadLocalState();
 let pendingQueue = loadQueue();
 
 function freshState(){
   return {
-    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:13 },
+    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:14, eventId:'legacy-current', eventYear:null },
     settings:{ eventName:'大豊学園駅伝大会', eventDate:'', entryDeadline:'', venue:'大豊学園', contact:'大会事務局', entryOpen:true, legCount:15, legDistances:{}, certificate:{ organizerName:'', issuerName:'大会実行委員長', sealMode:'text', sealText:'大豊学園', sealImagePath:'', templates:{teamAward:'',individualAward:'',recordCertificate:''} } },
     applications:{},
     teams:{},
@@ -40,7 +41,8 @@ function freshState(){
     credentials:{ adminHash:'', operatorHashes:{} },
     locks:{ operators:{}, teams:{} },
     notices:{},
-    awards:{ teamTopN:3, overallFastest:true, genderAwards:true, ageGroupAwards:true, ageGenderAwards:false, formalResultsPublished:false, individualAwardsPublished:false }
+    awards:{ teamTopN:3, overallFastest:true, genderAwards:true, ageGroupAwards:true, ageGenderAwards:false, formalResultsPublished:false, individualAwardsPublished:false },
+    eventArchives:{}
   };
 }
 function normalizeState(raw){
@@ -58,7 +60,8 @@ function normalizeState(raw){
     credentials:{...f.credentials,...(r.credentials||{}),operatorHashes:{...(r.credentials?.operatorHashes||{})}},
     locks:{operators:{...(r.locks?.operators||{})},teams:{...(r.locks?.teams||{})}},
     notices:r.notices||{},
-    awards:{...f.awards,...(r.awards||{})}
+    awards:{...f.awards,...(r.awards||{})},
+    eventArchives:r.eventArchives||{}
   };
 }
 function loadLocalState(){
@@ -113,6 +116,95 @@ function legLabel(leg){const d=legDistanceLabel(leg);return `第${leg}区間${d?
 function courseDistanceSummary(){
   const count=getLegCount(),vals=Array.from({length:count},(_,i)=>getLegDistance(i+1)),set=vals.filter(v=>v!=null),total=set.reduce((a,b)=>a+b,0);
   return {count,setCount:set.length,total,complete:set.length===count&&count>0};
+}
+
+// ---------- Annual event management ----------
+function inferredEventYear(settings=state.settings){
+  const date=String(settings?.eventDate||'');const m=date.match(/^(\d{4})-/);if(m)return Number(m[1]);
+  const n=String(settings?.eventName||'').match(/(20\d{2})/);if(n)return Number(n[1]);
+  return new Date().getFullYear();
+}
+function currentEventId(){return String(state.meta?.eventId||'legacy-current');}
+function currentEventYear(){const n=Number(state.meta?.eventYear);return Number.isFinite(n)&&n>0?n:inferredEventYear();}
+function eventArchiveList(){return Object.values(state.eventArchives||{}).filter(Boolean).sort((a,b)=>(Number(b.year)||0)-(Number(a.year)||0)||(b.archivedAt||0)-(a.archivedAt||0));}
+function cleanArchiveApplications(apps){
+  const out=structuredClone(apps||{});Object.values(out).forEach(a=>{if(a&&typeof a==='object')delete a.issuedAccessCode;});return out;
+}
+function currentResultSummary(){
+  return {
+    teamResults:formalTeamResults().map(r=>({rank:r.rank,teamNo:String(r.team.teamNo),teamName:r.team.teamName,total:r.total,legs:r.legs})),
+    individualAwards:individualAwardGroups().map(g=>({key:g.key,label:g.label,winners:g.winners.map(w=>({...w}))})),
+    personalRecords:personalBestRecords().map(r=>({...r,distanceKm:getLegDistance(r.leg)}))
+  };
+}
+function buildCurrentEventArchive(){
+  return {
+    id:currentEventId(),year:currentEventYear(),name:state.settings?.eventName||'駅伝大会',status:'archived',createdAt:state.meta?.eventCreatedAt||null,archivedAt:syncedNow(),
+    settings:structuredClone(state.settings||{}),awards:structuredClone(state.awards||{}),notices:structuredClone(state.notices||{}),
+    applications:cleanArchiveApplications(state.applications),teams:structuredClone(state.teams||{}),officialMeasurements:structuredClone(state.officialMeasurements||{}),teamMeasurements:structuredClone(state.teamMeasurements||{}),adoptions:structuredClone(state.adoptions||{}),overrides:structuredClone(state.overrides||{}),
+    meta:structuredClone(state.meta||{}),resultSummary:currentResultSummary(),
+    counts:{applications:Object.keys(state.applications||{}).length,teams:teamList().length,passes:computedPasses().length}
+  };
+}
+function makeNewEventId(year){return `evt_${year}_${cryptoRandom(8)}`;}
+async function persistEventArchive(archive){
+  const path=`eventArchives/${archive.id}`;
+  if(supabaseMode&&supabaseReady&&sb){const {error}=await sb.from('ekiden_kv').upsert({path,value:archive,updated_at:new Date().toISOString()},{onConflict:'path'});if(error){console.error(error);return false;}}
+  setByPath(state,path,archive);saveLocalSnapshot();renderCurrent();return true;
+}
+function copySettingsForNewEvent(source,name){
+  const base=freshState().settings,src=source?.settings||null;
+  if(!src)return {...base,eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,legDistances:{},certificate:structuredClone(base.certificate)};
+  return {...base,...structuredClone(src),eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,legDistances:structuredClone(src.legDistances||{}),certificate:structuredClone(src.certificate||base.certificate)};
+}
+function copyAwardsForNewEvent(source){
+  const base=freshState().awards,src=source?.awards||null,next={...base,...(src?structuredClone(src):{})};next.formalResultsPublished=false;next.individualAwardsPublished=false;return next;
+}
+function formatArchiveDate(v){if(!v)return '未設定';const d=new Date(`${v}T00:00:00`);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});}
+function renderEventManager(){
+  const current=document.getElementById('currentEventSummary'),list=document.getElementById('eventArchiveList'),detail=document.getElementById('eventArchiveDetail');if(!current||!list)return;
+  const year=currentEventYear(),summary=courseDistanceSummary();
+  current.innerHTML=`<div><small>現在の大会</small><strong>${esc(state.settings?.eventName||'駅伝大会')}</strong><span>${year}年度 ・ ${formatArchiveDate(state.settings?.eventDate)} ・ ${getLegCount()}区間${summary.setCount?` ・ 総距離 ${Number(summary.total.toFixed(3))}km`:''}</span></div><span class="current-event-badge">運用中</span>`;
+  const y=document.getElementById('newEventYear'),n=document.getElementById('newEventName'),sel=document.getElementById('newEventCopySource');
+  if(y&&!y.value)y.value=String(year+1);if(n&&!n.value)n.value=state.settings?.eventName||'駅伝大会';
+  if(sel){const keep=sel.value;sel.innerHTML=`<option value="current">現在大会の設定をコピー</option><option value="none">設定をコピーしない</option>${eventArchiveList().map(a=>`<option value="archive:${esc(a.id)}">${esc(a.year||'')}年度 ${esc(a.name||'過去大会')} の設定</option>`).join('')}`;if([...sel.options].some(o=>o.value===keep))sel.value=keep;}
+  const archives=eventArchiveList();
+  if(!archives.length)list.innerHTML='<div class="empty-state">過去大会はまだありません。新しい大会を作成すると、現在大会が自動的にここへ保存されます。</div>';
+  else list.innerHTML=`<table class="data-table"><thead><tr><th>年度</th><th>大会名</th><th>開催日</th><th>チーム</th><th>正式記録</th><th>保存日時</th><th>操作</th></tr></thead><tbody>${archives.map(a=>`<tr><td><b>${esc(a.year||'—')}</b></td><td>${esc(a.name||'')}</td><td>${esc(formatArchiveDate(a.settings?.eventDate))}</td><td>${Number(a.counts?.teams||Object.keys(a.teams||{}).length)}</td><td>${Number(a.resultSummary?.teamResults?.length||0)}チーム</td><td>${a.archivedAt?new Date(a.archivedAt).toLocaleString('ja-JP'):''}</td><td><button class="tiny-btn" data-view-archive="${esc(a.id)}">閲覧</button> <button class="tiny-btn" data-copy-archive="${esc(a.id)}">設定をコピー</button> <button class="text-btn" data-export-archive="${esc(a.id)}">結果CSV</button></td></tr>`).join('')}</tbody></table>`;
+  list.querySelectorAll('[data-view-archive]').forEach(b=>b.addEventListener('click',()=>{selectedArchiveId=b.dataset.viewArchive;renderEventManager();document.getElementById('eventArchiveDetail')?.scrollIntoView({behavior:'smooth',block:'nearest'});}));
+  list.querySelectorAll('[data-copy-archive]').forEach(b=>b.addEventListener('click',()=>{if(sel)sel.value=`archive:${b.dataset.copyArchive}`;const a=state.eventArchives?.[b.dataset.copyArchive];if(a&&n)n.value=a.name||'';if(a&&y)y.value=String((Number(a.year)||year)+1);toast('コピー元に設定しました');}));
+  list.querySelectorAll('[data-export-archive]').forEach(b=>b.addEventListener('click',()=>exportArchivedResults(b.dataset.exportArchive)));
+  if(detail){const a=selectedArchiveId&&state.eventArchives?.[selectedArchiveId];if(!a){detail.classList.add('hidden');detail.innerHTML='';}else{detail.classList.remove('hidden');detail.innerHTML=archiveDetailHtml(a);detail.querySelector('[data-close-archive]')?.addEventListener('click',()=>{selectedArchiveId=null;renderEventManager();});}}
+}
+function archiveDetailHtml(a){
+  const teams=a.resultSummary?.teamResults||[],awards=a.resultSummary?.individualAwards||[],records=a.resultSummary?.personalRecords||[];
+  const teamHtml=teams.length?`<table class="data-table"><thead><tr><th>順位</th><th>チーム</th><th>総合タイム</th></tr></thead><tbody>${teams.map(r=>`<tr><td>${r.rank}位</td><td>${esc(r.teamNo)} ${esc(r.teamName)}</td><td><b>${fmtClock(r.total)}</b></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">正式結果は保存されていません。</div>';
+  const awardHtml=awards.length?`<div class="archive-awards">${awards.map(g=>`<div><strong>${esc(g.label)}</strong>${(g.winners||[]).map(w=>`<span>${esc(w.name)}（${esc(w.teamName)}・第${w.leg}区間） ${fmtClock(w.lap)}</span>`).join('')}</div>`).join('')}</div>`:'<div class="empty-state">個人賞データはありません。</div>';
+  const recHtml=records.length?`<table class="data-table"><thead><tr><th>選手</th><th>チーム</th><th>区間</th><th>距離</th><th>記録</th></tr></thead><tbody>${records.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.teamName)}</td><td>第${r.leg}区間</td><td>${r.distanceKm?esc(formatDistanceKm(r.distanceKm)):'—'}</td><td>${fmtClock(r.lap)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">個人記録はありません。</div>';
+  return `<div class="archive-detail-head"><div><small>READ ONLY</small><h3>${esc(a.year||'')}年度 ${esc(a.name||'')}</h3><p>${esc(formatArchiveDate(a.settings?.eventDate))}　${esc(a.settings?.venue||'')}</p></div><button class="secondary-btn" data-close-archive>閉じる</button></div><div class="archive-detail-stats"><span>申込 <b>${Number(a.counts?.applications||Object.keys(a.applications||{}).length)}</b></span><span>チーム <b>${Number(a.counts?.teams||Object.keys(a.teams||{}).length)}</b></span><span>区間 <b>${Number(a.settings?.legCount||15)}</b></span><span>通過記録 <b>${Number(a.counts?.passes||0)}</b></span></div><div class="archive-detail-grid"><section><h4>チーム正式順位</h4>${teamHtml}</section><section><h4>個人賞</h4>${awardHtml}</section><section class="span-two"><h4>個人記録</h4>${recHtml}</section></div><p class="hint">過去大会は閲覧専用です。申込・チーム・計測データを現在大会へ戻すことはしません。</p>`;
+}
+function exportArchivedResults(id){
+  const a=state.eventArchives?.[id];if(!a)return;const rows=[['record_type','rank_or_category','team_no','team_name','runner_name','leg','distance_km','time']];
+  (a.resultSummary?.teamResults||[]).forEach(r=>rows.push(['team',r.rank,r.teamNo,r.teamName,'','','',fmtClock(r.total)]));
+  (a.resultSummary?.personalRecords||[]).forEach(r=>rows.push(['runner','',r.teamNo,r.teamName,r.name,r.leg,r.distanceKm||'',fmtClock(r.lap)]));
+  downloadText('\uFEFF'+rows.map(r=>r.map(csvEscape).join(',')).join('\r\n'),`ekiden_${a.year||'archive'}_results.csv`,'text/csv;charset=utf-8');
+}
+async function createNewAnnualEvent(){
+  if(state.meta?.raceStatus==='running'){toast('計測中は新しい大会へ切り替えできません');return;}
+  if(supabaseMode&&!supabaseConnected){toast('年度切替はSupabaseがONLINEのときに行ってください');return;}
+  if(pendingQueue.length){toast('未送信データがあります。同期が完了してから年度切替してください');return;}
+  const year=Math.max(2000,Math.min(2100,Number(document.getElementById('newEventYear')?.value)||0)),name=document.getElementById('newEventName')?.value.trim(),sourceKey=document.getElementById('newEventCopySource')?.value||'current';
+  if(!year||!name){toast('新しい大会の年度と大会名を入力してください');return;}
+  let source=null;if(sourceKey==='current')source={settings:structuredClone(state.settings),awards:structuredClone(state.awards)};else if(sourceKey.startsWith('archive:'))source=state.eventArchives?.[sourceKey.slice(8)]||null;
+  const msg=`現在の「${state.settings?.eventName||'大会'}」を過去大会として保存し、${year}年度「${name}」へ切り替えます。\n\n申込者・チーム・計測記録・結果は新大会へ引き継ぎません。開催日と申込締切も未設定になります。続けますか？`;
+  if(!confirm(msg))return;
+  const archive=buildCurrentEventArchive();if(!(await persistEventArchive(archive))){toast('現在大会のアーカイブ保存に失敗したため、年度切替を中止しました');return;}
+  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error(error);toast('年度切替の安全処理に失敗しました。v0.14用SQLパッチを確認してください');return;}}privateTeamCodes={};
+  if(!(await purgeCurrentEventRows())){toast('旧大会データの整理に失敗しました。年度切替を中止しました');return;}
+  const f=freshState(),newId=makeNewEventId(year),newSettings=copySettingsForNewEvent(source,name),newAwards=copyAwardsForNewEvent(source),newMeta={...f.meta,eventId:newId,eventYear:year,eventCreatedAt:syncedNow(),version:14,notice:DEFAULT_NOTICE};
+  queueWrite('meta',newMeta);queueWrite('settings',newSettings);queueWrite('applications',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',{operators:{},teams:{}});queueWrite('notices',{});queueWrite('awards',newAwards);
+  certificateResolvedUrls={teamAward:'',individualAward:'',recordCertificate:'',seal:''};selectedArchiveId=null;
+  const y=document.getElementById('newEventYear'),n=document.getElementById('newEventName');if(y)y.value='';if(n)n.value='';toast(`${year}年度の新しい大会を作成しました`);
 }
 function normalizeAgeGroup(value,age){
   const v=String(value||'');if(['未就学','小学生','中学生','高校生','一般（～29歳）','一般（30歳～）'].includes(v))return v;
@@ -218,6 +310,15 @@ async function sendQueuedOp(op){
   }catch(err){console.warn('Supabase write pending',op.path,err?.message||err);}
 }
 function flushQueue(){pendingQueue.slice().forEach(sendQueuedOp);}
+async function purgeCurrentEventRows(){
+  const prefixes=['applications','teams','officialMeasurements','teamMeasurements','adoptions','overrides','locks','notices'];
+  if(!supabaseMode||!supabaseReady||!sb){prefixes.forEach(k=>{state[k]=k==='locks'?{operators:{},teams:{}}:{};});saveLocalSnapshot();return true;}
+  for(const prefix of prefixes){
+    let r=await sb.from('ekiden_kv').delete().eq('path',prefix);if(r.error){console.error(r.error);return false;}
+    r=await sb.from('ekiden_kv').delete().like('path',`${prefix}/%`);if(r.error){console.error(r.error);return false;}
+  }
+  return true;
+}
 function stateFromRows(rows){const next=freshState();for(const row of rows||[]){if(row?.path)setByPath(next,row.path,row.value);}return normalizeState(mergePending(next));}
 async function refreshRemoteState(){
   if(!supabaseReady||!sb)return;
@@ -261,8 +362,11 @@ async function initSupabase(){
     supabaseUserId=session?.user?.id||null;supabaseReady=true;supabaseConnected=true;
     await syncServerTime();await refreshRemoteState();
     realtimeChannel=sb.channel('ekiden-kv-changes').on('postgres_changes',{event:'*',schema:'public',table:'ekiden_kv'},payload=>{
-      const row=payload.new||payload.old;if(!row?.path)return;
+      const row=payload.new||payload.old;if(!row?.path)return;const beforeEvent=currentEventId();
       if(payload.eventType==='DELETE')removeByPath(state,row.path);else setByPath(state,row.path,row.value);
+      if(row.path==='meta'&&currentEventId()!==beforeEvent&&currentSession&&currentSession.role!=='admin'){
+        currentSession=null;currentOperator=null;currentTeamNo=null;clearInterval(heartbeatTimer);go('top');toast('大会が切り替わりました。必要に応じて再ログインしてください');
+      }
       saveLocalSnapshot();renderCurrent();
     }).subscribe(status=>{supabaseConnected=status==='SUBSCRIBED';renderSyncStatus();if(supabaseConnected)flushQueue();});
     serverTimeTimer=setInterval(syncServerTime,60000);renderSyncStatus();flushQueue();
@@ -474,9 +578,9 @@ async function uploadCertificateAsset(kind,file){
   if(!certFileOk(file))return;
   if(!supabaseMode||!supabaseReady||!sb){toast('テンプレート画像の共有保存にはSupabase接続が必要です');return;}
   if(currentSession?.role!=='admin'){toast('管理者ログインが必要です');return;}
-  const objectName=`certificates/${kind}`;
+  const safeEvent=currentEventId().replace(/[^a-zA-Z0-9_-]/g,'_');const objectName=`certificates/${safeEvent}/${kind}`;
   const {error}=await sb.storage.from(CERT_BUCKET).upload(objectName,file,{upsert:true,contentType:file.type,cacheControl:'3600'});
-  if(error){console.error(error);toast('画像アップロードに失敗しました。v0.13用SQLパッチを確認してください');return;}
+  if(error){console.error(error);toast('画像アップロードに失敗しました。証書用Storage設定を確認してください');return;}
   certificateResolvedUrls[kind==='seal'?'seal':kind]='';
   if(kind==='seal')saveCertificateConfig({sealImagePath:objectName,sealMode:'image'});else saveCertificateConfig({templates:{[kind]:objectName}});
   await refreshCertificateAssetUrls();toast(kind==='seal'?'印画像を安全に保存しました':'テンプレートを保存しました');
@@ -663,7 +767,7 @@ document.getElementById('entryForm').addEventListener('submit',e=>{
   const runners=entryRows().map((row,i)=>({leg:i+1,name:row.querySelector('[data-runner-name]').value.trim(),sex:row.querySelector('[data-runner-sex]').value,ageGroup:row.querySelector('[data-runner-group]').value,age:Number(row.querySelector('[data-runner-age]').value)||null}));
   const missing=runners.find(r=>!r.name);if(missing){toast(`第${missing.leg}区間の走者名を入力してください`);return;}
   const at=syncedNow(),id=makeId('app');
-  const app={id,receiptNo:receiptNumber(id,at),teamName:document.getElementById('entryTeamName').value.trim(),contact,runners,notes:document.getElementById('entryNotes').value.trim(),status:'pending',submittedBy:supabaseMode?(supabaseUserId||''):'local',submittedAt:at,updatedAt:at};
+  const app={id,eventId:currentEventId(),receiptNo:receiptNumber(id,at),teamName:document.getElementById('entryTeamName').value.trim(),contact,runners,notes:document.getElementById('entryNotes').value.trim(),status:'pending',submittedBy:supabaseMode?(supabaseUserId||''):'local',submittedAt:at,updatedAt:at};
   if(!app.teamName||!contact.repName||!contact.phone){toast('必須項目を確認してください');return;}
   document.getElementById('entrySubmitBtn').disabled=true;queueWrite(`applications/${id}`,app);lastReceiptId=id;
   document.getElementById('entryReceiptNo').textContent=app.receiptNo;document.getElementById('entryCompleteText').textContent=`「${app.teamName}」の申込内容を大会事務局で確認します。`;e.target.reset();entryRows().forEach(row=>{row.querySelector('[data-runner-sex]').value='男';row.querySelector('[data-runner-group]').value='未就学';});go('entry-complete');
@@ -816,8 +920,9 @@ function renderAdmin(){
   const pill=document.getElementById('raceStatusPill');pill.textContent=statusLabel();pill.className='status-pill '+(state.meta.raceStatus==='running'?'running':state.meta.raceStatus==='finished'?'finished':'');
   document.getElementById('startRaceBtn').disabled=state.meta.raceStatus==='running';document.getElementById('finishRaceBtn').disabled=state.meta.raceStatus!=='running';
   renderEventSettings();renderEntryQr();renderApplications();renderTeamManagement();
-  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderCertificateSettings();renderSyncStatus();
+  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderCertificateSettings();renderEventManager();renderSyncStatus();
 }
+document.getElementById('createNewEventBtn')?.addEventListener('click',()=>createNewAnnualEvent());
 document.getElementById('startRaceBtn').addEventListener('click',()=>{
   if(!teamList().length&&!confirm('チーム登録がありません。このまま開始しますか？'))return;if(!confirm('全チーム一斉スタートとして計測を開始します。よろしいですか？'))return;
   queueWrite('meta',{...state.meta,raceStatus:'running',startAt:syncedNow(),finishAt:null});toast('一斉スタートしました');
@@ -933,9 +1038,16 @@ document.getElementById('printRecordCertificatesBtn')?.addEventListener('click',
 const demoNames=['大豊A','大杉A','豊永A','清流A','北山A','南風A','桜丘A','みどりA','希望A','つばさA','大豊B','大杉B'];
 function demoTeams(){const obj={};demoNames.forEach((name,i)=>{const no=String(i+1);obj[teamKey(no)]={teamNo:no,teamName:name,accessCode:String(1001+i),runners:Array.from({length:getLegCount()},(_,j)=>({name:`選手${j+1}`,sex:j%2?'女':'男',ageGroup:j%4===0?'小学生':j%4===1?'中学生':j%4===2?'一般（～29歳）':'一般（30歳～）',leg:j+1}))};});return obj;}
 document.getElementById('loadDemoBtn').addEventListener('click',async()=>{if(!confirm('デモ12チームを読み込み、現在の計測データを初期化しますか？'))return;const teams=demoTeams();if(supabaseMode){for(const t of Object.values(teams)){if(!(await setTeamSecret(t.teamNo,t.accessCode)))return;}}queueWrite('teams',teams);clearRaceMeasurements();toast('デモ12チームを読み込みました');});
-document.getElementById('resetBtn').addEventListener('click',async()=>{if(!confirm('申込・チーム・計測記録・設定をすべて初期化します。よろしいですか？'))return;if(supabaseMode&&supabaseReady){await sb.rpc('ekiden_clear_team_codes');privateTeamCodes={};}const f=freshState();['meta','settings','applications','teams','officialMeasurements','teamMeasurements','adoptions','overrides','credentials','locks','notices','awards'].forEach(k=>queueWrite(k,f[k]));toast('初期化しました');});
+document.getElementById('resetBtn').addEventListener('click',async()=>{
+  if(!confirm('現在大会の申込・チーム・計測記録・設定を初期化します。過去大会アーカイブと管理者・計測係コードは残ります。よろしいですか？'))return;
+  if(supabaseMode&&!supabaseConnected){toast('SupabaseがONLINEのときに初期化してください');return;}if(pendingQueue.length){toast('未送信データの同期完了後に初期化してください');return;}
+  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error(error);toast('端末セッションの整理に失敗しました。v0.14用SQLパッチを確認してください');return;}}privateTeamCodes={};
+  if(!(await purgeCurrentEventRows())){toast('現在大会データの整理に失敗しました');return;}
+  const f=freshState(),keep={eventId:currentEventId(),eventYear:currentEventYear(),eventCreatedAt:state.meta?.eventCreatedAt||syncedNow()};
+  queueWrite('meta',{...f.meta,...keep,version:14});queueWrite('settings',f.settings);queueWrite('applications',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',f.locks);queueWrite('notices',{});queueWrite('awards',f.awards);toast('現在大会を初期化しました');
+});
 document.getElementById('exportResultsBtn').addEventListener('click',()=>{
-  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v13.csv','text/csv;charset=utf-8');
+  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v14.csv','text/csv;charset=utf-8');
 });
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function downloadText(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}

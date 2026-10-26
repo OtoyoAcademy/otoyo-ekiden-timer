@@ -248,6 +248,21 @@ begin
 end;
 $$;
 
+create or replace function public.ekiden_prepare_new_event()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.ekiden_current_role() <> 'admin' then raise exception 'Admin required'; end if;
+  delete from public.ekiden_locks;
+  delete from public.ekiden_sessions where user_id <> auth.uid();
+  delete from public.ekiden_team_secrets;
+  return true;
+end;
+$$;
+
 -- RLS
 alter table public.ekiden_kv enable row level security;
 alter table public.ekiden_sessions enable row level security;
@@ -384,6 +399,7 @@ grant execute on function public.ekiden_set_team_code(text,text) to authenticate
 grant execute on function public.ekiden_delete_team_code(text) to authenticated;
 grant execute on function public.ekiden_list_team_codes() to authenticated;
 grant execute on function public.ekiden_clear_team_codes() to authenticated;
+grant execute on function public.ekiden_prepare_new_event() to authenticated;
 
 -- Enable Realtime for the key/value state table.
 do $$
@@ -434,6 +450,7 @@ revoke all on function public.ekiden_set_team_code(text,text) from public;
 revoke all on function public.ekiden_delete_team_code(text) from public;
 revoke all on function public.ekiden_list_team_codes() from public;
 revoke all on function public.ekiden_clear_team_codes() from public;
+revoke all on function public.ekiden_prepare_new_event() from public;
 revoke all on function public.ekiden_submit_application(text,jsonb) from public;
 
 grant execute on function public.ekiden_submit_application(text,jsonb) to authenticated;
