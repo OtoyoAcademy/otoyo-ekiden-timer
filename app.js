@@ -576,7 +576,7 @@ function renderCertificateSettings(){
     if(cfg.sealMode==='none')box.innerHTML='<span class="seal-none">なし</span>';
     else if(cfg.sealMode==='image'&&cfg.sealImagePath&&certificateResolvedUrls.seal)box.innerHTML=`<img src="${esc(certificateResolvedUrls.seal)}" alt="印画像" />`;
     else if(cfg.sealMode==='image'&&cfg.sealImagePath)box.innerHTML='<span class="seal-none">画像読込中</span>';
-    else box.innerHTML=`<span class="seal-text-mini">${esc(cfg.sealText||'印')}</span>`;
+    else box.innerHTML=certificateTextSealMarkup(cfg.sealText||'印','seal-text-mini');
   }
   const needsSigned=(cfg.sealImagePath&&!certificateResolvedUrls.seal)||(['teamAward','individualAward','recordCertificate','funRunAward'].some(k=>cfg.templates?.[k]&&!certificateResolvedUrls[k]));
   if(needsSigned&&currentSession?.role==='admin')refreshCertificateAssetUrls();
@@ -609,10 +609,17 @@ async function uploadCertificateAsset(kind,file){
   if(kind==='seal')saveCertificateConfig({sealImagePath:objectName,sealMode:'image'});else saveCertificateConfig({templates:{[kind]:objectName}});
   await refreshCertificateAssetUrls();toast(kind==='seal'?'印画像を安全に保存しました':'テンプレートを保存しました');
 }
+function certificateTextSealMarkup(text,cls='cert-seal-text'){
+  const chars=Array.from(String(text||'印').replace(/\s+/g,'')).slice(0,9);
+  const cols=chars.length<=1?1:chars.length<=4?2:3;
+  const rows=Math.ceil(chars.length/cols);
+  const glyphs=chars.map((ch,i)=>{const sourceCol=Math.floor(i/rows),row=(i%rows)+1,col=cols-sourceCol;return `<i style="grid-column:${col};grid-row:${row}">${esc(ch)}</i>`;}).join('');
+  return `<span class="${cls}" style="--seal-cols:${cols};--seal-rows:${rows}"><span class="seal-glyph-grid">${glyphs}</span></span>`;
+}
 function certificateSealHtml(cfg){
   if(cfg.sealMode==='none')return '';
   if(cfg.sealMode==='image'&&cfg.sealImagePath&&certificateResolvedUrls.seal)return `<img class="cert-seal-image" src="${esc(certificateResolvedUrls.seal)}" alt="印" />`;
-  return `<div class="cert-seal-text">${esc(cfg.sealText||'印')}</div>`;
+  return certificateTextSealMarkup(cfg.sealText||'印');
 }
 function certificateDateText(){
   const s=state.settings?.eventDate;if(!s)return new Date().toLocaleDateString('ja-JP');const d=new Date(`${s}T00:00:00`);return Number.isNaN(d.getTime())?s:`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
@@ -626,11 +633,11 @@ function certificatePageHtml(kind,data){
   const cfg=certificateConfig(),eventName=state.settings?.eventName||'駅伝大会',bg=certificateTemplateUrl(kind);
   if(kind==='teamAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content team-award"><div class="cert-title">表彰状</div><div class="cert-subtitle">${esc(certificateRankLabel(data.rank||1))}</div><div class="cert-recipient">${esc(data.teamName||'チーム名')} <small>殿</small></div><div class="cert-record">総合記録　${esc(data.total||'--:--:--')}</div><div class="cert-body">あなたのチームは「${esc(eventName)}」において<br>頭書の成績を収められました<br>よってその健闘をたたえ ここに表彰します</div>${certificateCommonFoot(cfg)}</div></section>`;
   if(kind==='individualAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content individual-award"><div class="cert-title">表彰状</div><div class="cert-subtitle">${esc(data.category||'個人賞')}</div><div class="cert-recipient">${esc(data.name||'選手名')} <small>殿</small></div><div class="cert-detail">${esc(data.teamName||'')}　${esc(data.legLabel||'')}</div><div class="cert-record">記録　${esc(data.lap||'--:--:--')}</div><div class="cert-body">あなたは「${esc(eventName)}」において<br>優秀な成績を収められました<br>よってその健闘をたたえ ここに表彰します</div>${certificateCommonFoot(cfg)}</div></section>`;
-  if(kind==='funRunAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content funrun-award"><div class="cert-title">${esc(state.settings?.funRunCertificateTitle||'がんばったで賞')}</div><div class="cert-team">${esc(state.settings?.funRunTitle||'ファンラン')}</div><div class="cert-recipient">${esc(data.name||'参加者名')} <small>さん</small></div><div class="funrun-detail">${esc(data.category||'未就学')}${data.age!=null?`　${esc(data.age)}歳`:''}</div><div class="cert-body">あなたは「${esc(eventName)}」の${esc(state.settings?.funRunTitle||'ファンラン')}に<br>元気いっぱい参加しました<br>そのがんばりをたたえ ここに証します</div>${certificateCommonFoot(cfg)}</div></section>`;
+  if(kind==='funRunAward')return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content funrun-award"><div class="funrun-kicker">FUN RUN CERTIFICATE</div><div class="cert-title">${esc(state.settings?.funRunCertificateTitle||'がんばったで賞')}</div><div class="cert-team">${esc(state.settings?.funRunTitle||'ファンラン')}</div><div class="cert-recipient">${esc(data.name||'参加者名')} <small>さん</small></div><div class="funrun-detail">${esc(data.category||'未就学')}${data.age!=null?`　${esc(data.age)}歳`:''}</div><div class="cert-body">あなたは「${esc(eventName)}」の${esc(state.settings?.funRunTitle||'ファンラン')}に<br>元気いっぱい参加し 最後までよくがんばりました<br>その素晴らしいチャレンジをたたえ ここに証します</div>${certificateCommonFoot(cfg)}</div></section>`;
   return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content record-certificate"><div class="cert-title">記録証</div><div class="cert-team">${esc(data.teamName||'チーム名')}</div><div class="cert-recipient">${esc(data.name||'選手名')} <small>殿</small></div><div class="record-table"><div><span>出場区間</span><strong>${esc(data.legLabel||'第1区間')}</strong></div><div><span>区間距離</span><strong>${esc(data.distance||'未設定')}</strong></div><div><span>記録</span><strong>${esc(data.lap||'--:--:--')}</strong></div><div><span>区間順位</span><strong>${esc(data.legRank||'—')}</strong></div></div><div class="cert-body compact">あなたの「${esc(eventName)}」における記録を<br>ここに証します</div>${certificateCommonFoot(cfg)}</div></section>`;
 }
 function certificatePrintStyles(){return `
-@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e7edf3;font-family:"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;color:#152535;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:10px;background:#102b47;color:#fff;text-align:center;font-family:sans-serif}.toolbar button{border:0;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}.cert-page{width:210mm;height:297mm;position:relative;margin:12px auto;background:#fff;overflow:hidden;page-break-after:always;box-shadow:0 8px 28px #0002}.cert-page:last-child{page-break-after:auto}.cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cert-content{position:absolute;inset:0;text-align:center}.cert-title{position:absolute;top:13%;left:10%;right:10%;font-size:24mm;font-weight:700;letter-spacing:.14em}.cert-subtitle{position:absolute;top:28%;left:12%;right:12%;font-size:11mm;font-weight:700}.cert-recipient{position:absolute;top:39%;left:12%;right:12%;font-size:11mm;font-weight:700;border-bottom:1px solid #566;display:inline-block;padding-bottom:3mm}.cert-recipient small{font-size:5mm;font-weight:500}.cert-detail{position:absolute;top:49%;left:12%;right:12%;font-size:5mm}.cert-record{position:absolute;top:54%;left:12%;right:12%;font-size:8mm;font-weight:700}.cert-body{position:absolute;top:63%;left:15%;right:15%;font-size:5.4mm;line-height:2}.cert-body.compact{top:69%}.cert-date{position:absolute;top:79%;left:15%;right:15%;font-size:4.8mm}.cert-issuer{position:absolute;top:83%;left:27%;right:18%;min-height:20mm;font-size:5mm;display:flex;align-items:center;justify-content:flex-end;gap:4mm}.cert-issuer span{font-size:4.2mm}.cert-issuer strong{font-size:5.2mm}.cert-seal-image{width:18mm;height:18mm;object-fit:contain}.cert-seal-text{width:18mm;height:18mm;border:1.2mm solid #c22;color:#c22;display:grid;place-items:center;font-family:"Yu Mincho",serif;font-size:4.2mm;font-weight:800;line-height:1.05;writing-mode:vertical-rl;letter-spacing:.08em}.cert-team{position:absolute;top:28%;left:12%;right:12%;font-size:5.5mm}.funrun-award .cert-recipient{top:38%}.funrun-detail{position:absolute;top:50%;left:12%;right:12%;font-size:6mm;font-weight:700}.funrun-award .cert-body{top:60%}.record-certificate .cert-recipient{top:34%}.record-table{position:absolute;top:48%;left:24%;right:24%;font-size:5mm;text-align:left}.record-table>div{display:grid;grid-template-columns:1fr 1.4fr;gap:8mm;border-bottom:1px solid #98aab7;padding:2.5mm 1mm}.record-table strong{text-align:right;font-size:5.4mm}.record-certificate .cert-date{top:79%}.record-certificate .cert-issuer{top:83%}@media print{body{background:#fff}.toolbar{display:none}.cert-page{margin:0;box-shadow:none}}`}
+@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e7edf3;font-family:"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;color:#152535;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:10px;background:#102b47;color:#fff;text-align:center;font-family:sans-serif}.toolbar button{border:0;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}.cert-page{width:210mm;height:297mm;position:relative;margin:12px auto;background:#fff;overflow:hidden;page-break-after:always;box-shadow:0 8px 28px #0002}.cert-page:last-child{page-break-after:auto}.cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cert-content{position:absolute;inset:0;text-align:center}.cert-title{position:absolute;top:13%;left:10%;right:10%;font-size:24mm;font-weight:700;letter-spacing:.14em}.cert-subtitle{position:absolute;top:28%;left:12%;right:12%;font-size:11mm;font-weight:700}.cert-recipient{position:absolute;top:39%;left:12%;right:12%;font-size:11mm;font-weight:700;border-bottom:1px solid #566;display:inline-block;padding-bottom:3mm}.cert-recipient small{font-size:5mm;font-weight:500}.cert-detail{position:absolute;top:49%;left:12%;right:12%;font-size:5mm}.cert-record{position:absolute;top:54%;left:12%;right:12%;font-size:8mm;font-weight:700}.cert-body{position:absolute;top:63%;left:15%;right:15%;font-size:5.4mm;line-height:2}.cert-body.compact{top:69%}.cert-date{position:absolute;top:79%;left:15%;right:15%;font-size:4.8mm}.cert-issuer{position:absolute;top:83%;left:27%;right:18%;min-height:20mm;font-size:5mm;display:flex;align-items:center;justify-content:flex-end;gap:4mm}.cert-issuer span{font-size:4.2mm}.cert-issuer strong{font-size:5.2mm}.cert-seal-image{width:19mm;height:19mm;object-fit:contain}.cert-seal-text{--seal-cols:2;--seal-rows:2;position:relative;width:19mm;height:19mm;border:1mm solid #a91f25;color:#a91f25;display:grid;place-items:center;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:4.3mm;font-weight:900;line-height:1;background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 .45mm #a91f25;padding:1.8mm}.cert-seal-text:after{content:"";position:absolute;inset:.8mm;border:.28mm solid rgba(169,31,37,.8);pointer-events:none}.seal-glyph-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(var(--seal-cols),1fr);grid-template-rows:repeat(var(--seal-rows),1fr);align-items:center;justify-items:center}.seal-glyph-grid i{font-style:normal;line-height:1}.cert-team{position:absolute;top:28%;left:12%;right:12%;font-size:5.5mm}.funrun-kicker{position:absolute;top:10.3%;left:18%;right:18%;font-family:Arial,sans-serif;font-size:3.2mm;font-weight:700;letter-spacing:.28em;color:#987126}.funrun-award .cert-title{top:15%;font-size:20mm;color:#215b49;letter-spacing:.08em;text-shadow:0 .2mm 0 rgba(255,255,255,.8)}.funrun-award .cert-team{top:29.5%;font-size:5mm;color:#7a6330;letter-spacing:.16em;font-family:"Yu Gothic","Hiragino Sans",sans-serif;font-weight:700}.funrun-award .cert-recipient{top:38.5%;left:17%;right:17%;font-size:11.5mm;border-bottom:.35mm solid #7b8d82}.funrun-detail{position:absolute;top:50.5%;left:12%;right:12%;font-size:5.4mm;font-weight:700;color:#4d6258}.funrun-award .cert-body{top:59.5%;left:16%;right:16%;font-size:5.2mm;line-height:2.05}.funrun-award .cert-date{top:79.5%}.funrun-award .cert-issuer{top:83%}.record-certificate .cert-recipient{top:34%}.record-table{position:absolute;top:48%;left:24%;right:24%;font-size:5mm;text-align:left}.record-table>div{display:grid;grid-template-columns:1fr 1.4fr;gap:8mm;border-bottom:1px solid #98aab7;padding:2.5mm 1mm}.record-table strong{text-align:right;font-size:5.4mm}.record-certificate .cert-date{top:79%}.record-certificate .cert-issuer{top:83%}@media print{body{background:#fff}.toolbar{display:none}.cert-page{margin:0;box-shadow:none}}`}
 function openCertificatePages(pages,title='証書プレビュー'){
   if(!pages.length){toast('出力できるデータがありません');return;}const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${certificatePrintStyles()}</style></head><body><div class="toolbar"><button onclick="window.print()">PDF・印刷</button>　${esc(title)}（${pages.length}枚）</div>${pages.join('')}</body></html>`);w.document.close();
 }
@@ -705,10 +712,24 @@ function renderTopImportantNotices(){
 }
 
 function renderTopStatus(){
-  const cfg=state.settings||{},open=entryIsOpenNow();
-  const el=document.getElementById('entryTopStatus');
-  if(el)el.textContent=open?'申込受付中・フォームはこちら':'現在、申込受付は終了しています';
-  const eventDays=daysUntil(cfg.eventDate),entryDays=daysUntil(cfg.entryDeadline);
+  const cfg=state.settings||{},open=entryIsOpenNow(),entryDays=daysUntil(cfg.entryDeadline);
+  const deadlinePassed=entryDays!=null&&entryDays<0;
+  const button=document.getElementById('entryTopButton'),title=document.getElementById('entryTopTitle'),status=document.getElementById('entryTopStatus'),icon=document.getElementById('entryTopIcon'),arrow=document.getElementById('entryTopArrow');
+  const contact=String(cfg.contact||'大会事務局').trim()||'大会事務局';
+  if(deadlinePassed){
+    if(title)title.textContent='申し込みは終了しました。';
+    if(status)status.textContent=`何かあれば${contact}へ連絡してください。`;
+    if(icon)icon.textContent='✓';
+    if(arrow)arrow.textContent='';
+    if(button){button.disabled=true;button.classList.add('closed');button.setAttribute('aria-disabled','true');}
+  }else{
+    if(title)title.textContent='駅伝 参加申込';
+    if(status)status.textContent=open?'申込受付中・フォームはこちら':`現在、受付を停止しています。何かあれば${contact}へ連絡してください。`;
+    if(icon)icon.textContent='📝';
+    if(arrow)arrow.textContent='›';
+    if(button){button.disabled=!open;button.classList.toggle('closed',!open);button.setAttribute('aria-disabled',open?'false':'true');}
+  }
+  const eventDays=daysUntil(cfg.eventDate);
   const eventEl=document.getElementById('eventCountdown'),entryEl=document.getElementById('entryCountdown');
   const eventDateEl=document.getElementById('eventDateLabel'),entryDateEl=document.getElementById('entryDeadlineLabel');
   if(eventEl)eventEl.textContent=countdownText(eventDays,'event');
@@ -742,7 +763,8 @@ function renderEntry(){
   document.getElementById('entryEventName').textContent=`${cfg.eventName||'大豊学園駅伝大会'} 参加申込`;
   const open=entryIsOpenNow(),badge=document.getElementById('entryOpenBadge'),closed=document.getElementById('entryClosedMessage'),btn=document.getElementById('entrySubmitBtn');
   badge.textContent=open?'受付中':'受付停止中';badge.className='status-pill '+(open?'running':'finished');
-  closed.classList.toggle('hidden',open);closed.textContent=open?'':`現在、駅伝の参加申込は受け付けていません。${cfg.contact?` お問い合わせ：${cfg.contact}`:''}`;
+  const entryDays=daysUntil(cfg.entryDeadline),deadlinePassed=entryDays!=null&&entryDays<0,contact=String(cfg.contact||'大会事務局').trim()||'大会事務局';
+  closed.classList.toggle('hidden',open);closed.textContent=open?'':deadlinePassed?`申し込みは終了しました。何かあれば${contact}へ連絡してください。`:`現在、駅伝の参加申込は受け付けていません。何かあれば${contact}へ連絡してください。`;
   btn.disabled=!open;
 }
 function entryRows(){return [...document.querySelectorAll('#entryRunnerRows tr')];}

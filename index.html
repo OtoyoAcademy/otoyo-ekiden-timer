@@ -7,9 +7,9 @@
   <title>駅伝タイム計測 | Ekiden Timer</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=0.15" />
+  <link rel="stylesheet" href="styles.css?v=0.15.1" />
   <style>
-    /* v0.15: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
+    /* v0.15.1: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
     @media(max-width:640px){.leg-distance-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}
     @media(max-width:420px){.leg-distance-grid{grid-template-columns:1fr!important;}}
@@ -46,10 +46,10 @@
         </section>
 
         <div class="entry-cta-wrap">
-          <button class="entry-cta" data-go="entry">
-            <span class="entry-cta-icon">📝</span>
-            <span><strong>駅伝 参加申込</strong><small id="entryTopStatus">申込フォームはこちら</small></span>
-            <span class="role-arrow">›</span>
+          <button class="entry-cta" id="entryTopButton" data-go="entry">
+            <span class="entry-cta-icon" id="entryTopIcon">📝</span>
+            <span><strong id="entryTopTitle">駅伝 参加申込</strong><small id="entryTopStatus">申込フォームはこちら</small></span>
+            <span class="role-arrow" id="entryTopArrow">›</span>
           </button>
         </div>
 
@@ -548,6 +548,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=0.15"></script>
+  <script type="module" src="app.js?v=0.15.1"></script>
 </body>
 </html>
