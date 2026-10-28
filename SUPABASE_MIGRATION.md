@@ -1,10 +1,7 @@
-# Supabase migration notes - v0.15
+# Supabase / v1.0
 
-`supabase-patch-v0.15.sql` を1回実行してください。
+v1.0ではv0.15.1までに適用済みのSupabase構成をそのまま使用します。
 
-追加されるRPC: `public.ekiden_submit_funrun(text,jsonb)`
+追加SQLパッチはありません。既存の `ekiden_kv`、認証RPC、年度切替RPC、証書用Storage、ファンラン受付RPCを利用します。
 
-- 匿名認証済み利用者がファンラン受付を安全に送信するための関数です。
-- `funRunEntries/*` は一般のSELECT対象には追加しません。管理者のみ一覧取得できます。
-- 受付時に `attended=false` をサーバー側で強制します。参加済み処理は管理者のみ可能です。
-- Storageの追加バケットは不要です。既存の非公開 `ekiden-assets` をファンラン参加証テンプレートにも使用します。
+新規環境へ一から構築する場合は `supabase-setup.sql` を使用し、その後、同梱の過去パッチが必要な構成の場合のみ順番に適用してください。既存の school-events プロジェクトでは `ofes_*` テーブルを変更しないでください。

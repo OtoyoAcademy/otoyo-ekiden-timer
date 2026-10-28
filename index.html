@@ -4,10 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f4f9ff" />
-  <title>駅伝タイム計測 | Ekiden Timer</title>
+  <title>駅伝大会運営システム | Ekiden</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=0.15.1" />
+  <link rel="stylesheet" href="styles.css?v=1.0" />
   <style>
     /* v0.15.1: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
@@ -20,7 +20,7 @@
     <header class="app-topbar hidden" id="appTopbar">
       <button class="icon-button" id="homeBtn" aria-label="トップへ戻る">⌂</button>
       <div class="topbar-copy">
-        <div class="topbar-title" id="topbarTitle">駅伝タイム計測</div>
+        <div class="topbar-title" id="topbarTitle">駅伝大会運営システム</div>
         <div class="topbar-subtitle" id="syncBadge">起動中...</div>
       </div>
       <button class="icon-button" id="menuBtn" aria-label="トップへ戻る">☰</button>
@@ -31,7 +31,7 @@
       <section id="screen-top" class="screen active screen-top" aria-labelledby="topTitle">
         <div class="hero-card">
           <div class="hero-logo-wrap"><img src="assets/logo-kanji.png" class="hero-logo hero-wordmark" alt="駅伝 ロゴ" /></div>
-          <h1 id="topTitle" class="top-title-hidden">駅伝タイム計測</h1>
+          <h1 id="topTitle" class="top-title-hidden">駅伝大会運営システム</h1>
           <p class="hero-en">Ekiden</p>
           <p class="hero-subcopy">大会運営・計測・お知らせをひとつに。</p>
           <div class="top-countdowns" aria-label="大会日程">
@@ -79,7 +79,7 @@
           <span class="surface-line line-b"></span>
           <span class="surface-grid"></span>
         </div>
-        <p class="tech-note">GitHub Pages + Supabase</p>
+        <p class="tech-note">v1.0 ・ GitHub Pages + Supabase</p>
       </section>
 
       <!-- ENTRY -->
@@ -94,7 +94,7 @@
           </div>
           <div id="entryClosedMessage" class="warning-box hidden"></div>
           <div class="dev-warning">
-            <strong>開発版：</strong>現在はダミーデータでの動作確認用です。SupabaseのRLS（行レベルセキュリティ）で、申込データを管理者以外から読み取れない構成にしています。
+            <strong>個人情報の取扱い：</strong>申込内容は大会運営のために使用し、管理者以外から申込データを読み取れない構成にしています。
           </div>
           <form id="entryForm">
             <fieldset>
@@ -234,13 +234,19 @@
 
           <article class="panel">
             <div class="panel-heading"><h2>同期状態</h2><span class="mini-badge" id="connectionBadge">LOCAL</span></div>
-            <p id="connectionDetail">ローカル試作モードです。</p>
+            <p id="connectionDetail">ローカルモードです。</p>
             <div class="sync-line"><span>未送信データ</span><strong id="pendingCount">0</strong></div>
             <div class="sync-line"><span>時刻補正</span><strong id="serverOffsetLabel">0 ms</strong></div>
           </article>
 
+          <article class="panel wide production-panel">
+            <div class="panel-heading"><h2>本番前チェック</h2><div class="action-row"><span class="production-score" id="productionScore">0/10</span><span class="mini-badge" id="productionBadge">要確認</span></div></div>
+            <p class="hint">大会当日までに確認しておきたい項目です。未完了があっても計測はできますが、本番前にすべて✓にすることを推奨します。</p>
+            <div id="productionChecklist" class="production-checklist"></div>
+          </article>
+
           <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge">v0.15</span></div>
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -258,7 +264,7 @@
           </article>
 
           <article class="panel">
-            <div class="panel-heading"><h2>アクセスコード設定</h2><span class="mini-badge">第1段階</span></div>
+            <div class="panel-heading"><h2>アクセスコード設定</h2><span class="mini-badge">SECURITY</span></div>
             <p>空欄は変更しません。実運用前に初期コードから変更してください。</p>
             <div class="code-grid">
               <label>管理者<input id="newAdminCode" type="password" inputmode="numeric" placeholder="新しいコード" /></label>
@@ -266,7 +272,7 @@
               <label>計測B<input id="newOpBCode" type="password" inputmode="numeric" placeholder="新しいコード" /></label>
               <label>計測C<input id="newOpCCode" type="password" inputmode="numeric" placeholder="新しいコード" /></label>
             </div>
-            <button class="primary-btn" id="saveAccessCodesBtn">アクセスコードを更新</button>
+            <div class="action-row wrap"><button class="primary-btn" id="saveAccessCodesBtn">アクセスコードを更新</button><button class="secondary-btn" id="confirmCodesBtn" type="button">初期コード変更済みを確認</button></div>
           </article>
 
           <article class="panel">
@@ -324,7 +330,7 @@
           </article>
 
           <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge">v0.15</span></div>
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -417,8 +423,8 @@
           </article>
 
           <article class="panel">
-            <div class="panel-heading"><h2>エントリーCSV</h2><span class="mini-badge">暫定</span></div>
-            <p>第2段階で申込機能に統合します。今はCSVまたはデモデータでチームを準備します。</p>
+            <div class="panel-heading"><h2>エントリーCSV</h2><span class="mini-badge">補助入力</span></div>
+            <p>大量登録や既存名簿からの移行に使う補助機能です。通常は申込フォームからの承認登録を使用してください。</p>
             <div class="action-row wrap"><button class="secondary-btn" id="downloadCsvBtn">テンプレートCSV</button><label class="file-btn">CSVを読み込む<input type="file" id="csvInput" accept=".csv,text/csv" hidden /></label></div>
             <div id="csvPreview" class="csv-preview empty">CSVを読み込むと、ここにプレビューを表示します。</div>
             <button class="primary-btn" id="commitCsvBtn" disabled>チームデータとして登録</button>
@@ -464,9 +470,22 @@
             <div id="teamBackupLog" class="table-wrap"></div>
           </article>
 
+          <article class="panel wide backup-panel">
+            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0</span></div>
+            <p class="hint">JSONバックアップには申込者の個人情報とチーム用アクセスコードが含まれます。学校・大会事務局の安全な場所に保管してください。管理者・計測係のアクセスコードはバックアップに含めません。</p>
+            <div class="backup-actions">
+              <button class="primary-btn" id="exportBackupBtn" type="button">現在大会をJSONバックアップ</button>
+              <label class="file-btn restore-btn">JSONから復元<input type="file" id="restoreBackupInput" accept="application/json,.json" hidden /></label>
+              <button class="secondary-btn" id="exportTeamsCsvBtn" type="button">チーム・走者CSV</button>
+              <button class="secondary-btn" id="exportResultsBtnMirror" type="button" onclick="document.getElementById('exportResultsBtn').click()">計測結果CSV</button>
+              <button class="secondary-btn" id="exportApplicationsBtnMirror" type="button" onclick="document.getElementById('exportApplicationsBtn').click()">申込CSV</button>
+              <button class="secondary-btn" id="exportFunRunBtnMirror" type="button" onclick="document.getElementById('exportFunRunBtn').click()">ファンランCSV</button>
+            </div>
+          </article>
+
           <article class="panel wide danger-zone">
-            <div class="panel-heading"><h2>試作データ</h2></div>
-            <p>画面確認用の12チームを読み込むか、現在大会の試作データを初期化できます。過去大会アーカイブは残ります。</p>
+            <div class="panel-heading"><h2>テスト・初期化</h2><span class="mini-badge">管理者専用</span></div>
+            <p>テスト用の12チームを読み込むか、現在大会を初期化できます。本番運用では誤操作に注意してください。過去大会アーカイブは残ります。</p>
             <div class="action-row"><button class="secondary-btn" id="loadDemoBtn">デモ12チームを読込</button><button class="danger-btn" id="resetBtn">現在大会を初期化</button></div>
           </article>
         </div>
@@ -548,6 +567,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=0.15.1"></script>
+  <script type="module" src="app.js?v=1.0"></script>
 </body>
 </html>

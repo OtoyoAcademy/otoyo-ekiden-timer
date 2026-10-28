@@ -8,6 +8,14 @@ const LOCK_STALE_MS = 90000;
 const HEARTBEAT_MS = 20000;
 const DEFAULT_NOTICE = '開会式は、体育館で10時からとなっています。参加者は、5分前にはお集まりください。';
 const DEFAULT_CODES = { admin:'1234', A:'1111', B:'2222', C:'3333' };
+const APP_VERSION='1.0';
+const TEAM_COLORS={
+  1:'#FA927E',2:'#78C7FC',3:'#F8CC76',4:'#9EE6B4',5:'#C1A6F9',
+  6:'#F6AAD2',7:'#88E2DB',8:'#F3B180',9:'#A5BDF3',10:'#D2E58A'
+};
+function teamColor(no){const n=Number(String(no).replace(/[^0-9.-]/g,''));if(!Number.isFinite(n)||n<=0)return '#DCE8F1';return TEAM_COLORS[((Math.floor(n)-1)%10)+1]||'#DCE8F1';}
+function teamColorMark(no,extra=''){return `<span class="team-color-mark ${extra}" style="--team-color:${teamColor(no)}" aria-hidden="true"></span>`;}
+
 
 let currentScreen = 'top';
 let currentOperator = null;
@@ -30,8 +38,8 @@ let pendingQueue = loadQueue();
 
 function freshState(){
   return {
-    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:15, eventId:'legacy-current', eventYear:null },
-    settings:{ eventName:'大豊学園駅伝大会', eventDate:'', entryDeadline:'', venue:'大豊学園', contact:'大会事務局', entryOpen:true, funRunEnabled:true, funRunEntryOpen:true, funRunTitle:'ファンラン', funRunCertificateTitle:'がんばったで賞', legCount:15, legDistances:{}, certificate:{ organizerName:'', issuerName:'大会実行委員長', sealMode:'text', sealText:'大豊学園', sealImagePath:'', templates:{teamAward:'',individualAward:'',recordCertificate:'',funRunAward:''} } },
+    meta:{ raceStatus:'before', startAt:null, finishAt:null, notice:DEFAULT_NOTICE, version:100, eventId:'legacy-current', eventYear:null },
+    settings:{ eventName:'大豊学園駅伝大会', eventDate:'', entryDeadline:'', venue:'大豊学園', contact:'大会事務局', entryOpen:true, funRunEnabled:true, funRunEntryOpen:true, funRunTitle:'ファンラン', funRunCertificateTitle:'がんばったで賞', legCount:15, legDistances:{}, certificate:{ organizerName:'', issuerName:'大会実行委員長', sealMode:'text', sealText:'大豊学園', sealImagePath:'', templates:{teamAward:'',individualAward:'',recordCertificate:'',funRunAward:''} }, production:{codesConfirmed:false,lastBackupAt:null} },
     applications:{},
     funRunEntries:{},
     teams:{},
@@ -172,8 +180,8 @@ async function deleteEventArchive(id){
 }
 function copySettingsForNewEvent(source,name){
   const base=freshState().settings,src=source?.settings||null;
-  if(!src)return {...base,eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,funRunEntryOpen:false,legDistances:{},certificate:structuredClone(base.certificate)};
-  return {...base,...structuredClone(src),eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,funRunEntryOpen:false,legDistances:structuredClone(src.legDistances||{}),certificate:structuredClone(src.certificate||base.certificate)};
+  if(!src)return {...base,eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,funRunEntryOpen:false,legDistances:{},certificate:structuredClone(base.certificate),production:{...base.production,lastBackupAt:null}};
+  return {...base,...structuredClone(src),eventName:name,eventDate:'',entryDeadline:'',entryOpen:false,funRunEntryOpen:false,legDistances:structuredClone(src.legDistances||{}),certificate:structuredClone(src.certificate||base.certificate),production:{...base.production,...(src.production||{}),lastBackupAt:null}};
 }
 function copyAwardsForNewEvent(source){
   const base=freshState().awards,src=source?.awards||null,next={...base,...(src?structuredClone(src):{})};next.formalResultsPublished=false;next.individualAwardsPublished=false;return next;
@@ -223,7 +231,7 @@ async function createNewAnnualEvent(){
   const archive=buildCurrentEventArchive();if(!(await persistEventArchive(archive))){toast('現在大会のアーカイブ保存に失敗したため、年度切替を中止しました');return;}
   if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error('ekiden_prepare_new_event failed',error);const msg=String(error.message||error.details||'').slice(0,120);toast(`年度切替の安全処理に失敗しました${msg?`：${msg}`:''}`);return;}}privateTeamCodes={};
   if(!(await purgeCurrentEventRows())){toast('旧大会データの整理に失敗しました。年度切替を中止しました');return;}
-  const f=freshState(),newId=makeNewEventId(year),newSettings=copySettingsForNewEvent(source,name),newAwards=copyAwardsForNewEvent(source),newMeta={...f.meta,eventId:newId,eventYear:year,eventCreatedAt:syncedNow(),version:15,notice:DEFAULT_NOTICE};
+  const f=freshState(),newId=makeNewEventId(year),newSettings=copySettingsForNewEvent(source,name),newAwards=copyAwardsForNewEvent(source),newMeta={...f.meta,eventId:newId,eventYear:year,eventCreatedAt:syncedNow(),version:100,notice:DEFAULT_NOTICE};
   queueWrite('meta',newMeta);queueWrite('settings',newSettings);queueWrite('applications',{});queueWrite('funRunEntries',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',{operators:{},teams:{}});queueWrite('notices',{});queueWrite('awards',newAwards);
   certificateResolvedUrls={teamAward:'',individualAward:'',recordCertificate:'',funRunAward:'',seal:''};selectedArchiveId=null;
   const y=document.getElementById('newEventYear'),n=document.getElementById('newEventName');if(y)y.value='';if(n)n.value='';toast(`${year}年度の新しい大会を作成しました`);
@@ -398,11 +406,11 @@ async function initSupabase(){
 
 function renderSyncStatus(){
   const badge=document.getElementById('syncBadge'),cb=document.getElementById('connectionBadge'),cd=document.getElementById('connectionDetail'),pc=document.getElementById('pendingCount'),so=document.getElementById('serverOffsetLabel');
-  if(badge)badge.textContent=supabaseMode?(supabaseConnected?'Supabase同期中':'Supabase待機中'):'ローカル試作モード';
+  if(badge)badge.textContent=supabaseMode?(supabaseConnected?'Supabase同期中':'Supabase待機中'):'ローカルモード';
   if(cb){cb.textContent=supabaseMode?(supabaseConnected?'ONLINE':'OFFLINE'):'LOCAL';cb.className='mini-badge '+(supabaseConnected?'online':'');}
   if(cd)cd.textContent=supabaseMode?(supabaseConnected?'複数端末でSupabaseリアルタイム同期しています。':'通信復旧後に未送信データを再送します。'):'同一ブラウザ内のみ。Supabase設定後に複数端末同期します。';
   if(pc)pc.textContent=String(pendingQueue.length);if(so)so.textContent=`${Math.round(serverOffsetMs)} ms`;
-  const cs=document.getElementById('clockStatus');if(cs)cs.textContent=supabaseMode?`Supabase基準の時刻補正：${Math.round(serverOffsetMs)} ms`:'端末時刻で計測（ローカル試作）';
+  const cs=document.getElementById('clockStatus');if(cs)cs.textContent=supabaseMode?`Supabase基準の時刻補正：${Math.round(serverOffsetMs)} ms`:'端末時刻で計測（ローカルモード）';
 }
 
 // ---------- Screen navigation ----------
@@ -411,7 +419,7 @@ function go(name){
   currentScreen=name; screens.forEach(s=>s.classList.toggle('active',s.id===`screen-${name}`));
   document.getElementById('appTopbar').classList.toggle('hidden',name==='top');
   const titles={'entry':'参加申込','entry-complete':'申込完了','funrun-entry':'ファンラン受付','funrun-complete':'ファンラン受付完了','admin-login':'管理者ログイン','timer-login':'計測係ログイン','admin':'管理者画面','timer':'運営計測','team-timer':'チーム参考計測','participant':'参加者・閲覧画面'};
-  document.getElementById('topbarTitle').textContent=titles[name]||'駅伝タイム計測';
+  document.getElementById('topbarTitle').textContent=titles[name]||'駅伝大会運営システム';
   renderCurrent(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function renderCurrent(){
@@ -527,8 +535,8 @@ function awardTeamRows(){const n=Math.max(1,Math.min(10,Number(state.awards?.tea
 function renderFormalTeamTable(rows,compact=false){
   if(!rows.length)return '<div class="empty-state">完走チームの正式記録がまだありません。</div>';
   const topN=Math.max(1,Math.min(10,Number(state.awards?.teamTopN||3)));
-  if(compact)return `<div class="formal-ranking-list">${rows.map(r=>`<div class="formal-rank-row ${r.rank<=topN?'team-award-row':''}"><span class="formal-rank-num">${r.rank}位</span><strong>${esc(r.team.teamName)}${r.rank<=topN?' <em class="award-label">表彰</em>':''}</strong><span>チーム ${esc(r.team.teamNo)}</span><b>${fmtClock(r.total)}</b></div>`).join('')}</div>`;
-  return `<table class="data-table"><thead><tr><th>順位</th><th>チーム</th><th>総合タイム</th><th>完走区間</th><th>表彰</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.rank}位</b></td><td>${esc(r.team.teamNo)} ${esc(r.team.teamName)}</td><td><b>${fmtClock(r.total)}</b></td><td>${r.legs}/${getLegCount()}</td><td>${r.rank<=topN?'<span class="status-chip approved">対象</span>':'—'}</td></tr>`).join('')}</tbody></table>`;
+  if(compact)return `<div class="formal-ranking-list">${rows.map(r=>`<div class="formal-rank-row ${r.rank<=topN?'team-award-row':''}" style="--team-color:${teamColor(r.team.teamNo)}"><span class="formal-rank-num">${r.rank}位</span><strong>${teamColorMark(r.team.teamNo)}${esc(r.team.teamName)}${r.rank<=topN?' <em class="award-label">表彰</em>':''}</strong><span>チーム ${esc(r.team.teamNo)}</span><b>${fmtClock(r.total)}</b></div>`).join('')}</div>`;
+  return `<table class="data-table"><thead><tr><th>順位</th><th>チーム</th><th>総合タイム</th><th>完走区間</th><th>表彰</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.rank}位</b></td><td>${teamColorMark(r.team.teamNo)}${esc(r.team.teamNo)} ${esc(r.team.teamName)}</td><td><b>${fmtClock(r.total)}</b></td><td>${r.legs}/${getLegCount()}</td><td>${r.rank<=topN?'<span class="status-chip approved">対象</span>':'—'}</td></tr>`).join('')}</tbody></table>`;
 }
 function renderAwardCards(groups,compact=false){
   if(!groups.length)return '<div class="empty-state">現在の設定で該当する個人賞はありません。</div>';
@@ -637,7 +645,7 @@ function certificatePageHtml(kind,data){
   return `<section class="cert-page"><img class="cert-bg" src="${esc(bg)}" /><div class="cert-content record-certificate"><div class="cert-title">記録証</div><div class="cert-team">${esc(data.teamName||'チーム名')}</div><div class="cert-recipient">${esc(data.name||'選手名')} <small>殿</small></div><div class="record-table"><div><span>出場区間</span><strong>${esc(data.legLabel||'第1区間')}</strong></div><div><span>区間距離</span><strong>${esc(data.distance||'未設定')}</strong></div><div><span>記録</span><strong>${esc(data.lap||'--:--:--')}</strong></div><div><span>区間順位</span><strong>${esc(data.legRank||'—')}</strong></div></div><div class="cert-body compact">あなたの「${esc(eventName)}」における記録を<br>ここに証します</div>${certificateCommonFoot(cfg)}</div></section>`;
 }
 function certificatePrintStyles(){return `
-@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e7edf3;font-family:"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;color:#152535;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:10px;background:#102b47;color:#fff;text-align:center;font-family:sans-serif}.toolbar button{border:0;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}.cert-page{width:210mm;height:297mm;position:relative;margin:12px auto;background:#fff;overflow:hidden;page-break-after:always;box-shadow:0 8px 28px #0002}.cert-page:last-child{page-break-after:auto}.cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cert-content{position:absolute;inset:0;text-align:center}.cert-title{position:absolute;top:13%;left:10%;right:10%;font-size:24mm;font-weight:700;letter-spacing:.14em}.cert-subtitle{position:absolute;top:28%;left:12%;right:12%;font-size:11mm;font-weight:700}.cert-recipient{position:absolute;top:39%;left:12%;right:12%;font-size:11mm;font-weight:700;border-bottom:1px solid #566;display:inline-block;padding-bottom:3mm}.cert-recipient small{font-size:5mm;font-weight:500}.cert-detail{position:absolute;top:49%;left:12%;right:12%;font-size:5mm}.cert-record{position:absolute;top:54%;left:12%;right:12%;font-size:8mm;font-weight:700}.cert-body{position:absolute;top:63%;left:15%;right:15%;font-size:5.4mm;line-height:2}.cert-body.compact{top:69%}.cert-date{position:absolute;top:79%;left:15%;right:15%;font-size:4.8mm}.cert-issuer{position:absolute;top:83%;left:27%;right:18%;min-height:20mm;font-size:5mm;display:flex;align-items:center;justify-content:flex-end;gap:4mm}.cert-issuer span{font-size:4.2mm}.cert-issuer strong{font-size:5.2mm}.cert-seal-image{width:19mm;height:19mm;object-fit:contain}.cert-seal-text{--seal-cols:2;--seal-rows:2;position:relative;width:19mm;height:19mm;border:1mm solid #a91f25;color:#a91f25;display:grid;place-items:center;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:4.3mm;font-weight:900;line-height:1;background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 .45mm #a91f25;padding:1.8mm}.cert-seal-text:after{content:"";position:absolute;inset:.8mm;border:.28mm solid rgba(169,31,37,.8);pointer-events:none}.seal-glyph-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(var(--seal-cols),1fr);grid-template-rows:repeat(var(--seal-rows),1fr);align-items:center;justify-items:center}.seal-glyph-grid i{font-style:normal;line-height:1}.cert-team{position:absolute;top:28%;left:12%;right:12%;font-size:5.5mm}.funrun-kicker{position:absolute;top:10.3%;left:18%;right:18%;font-family:Arial,sans-serif;font-size:3.2mm;font-weight:700;letter-spacing:.28em;color:#987126}.funrun-award .cert-title{top:15%;font-size:20mm;color:#215b49;letter-spacing:.08em;text-shadow:0 .2mm 0 rgba(255,255,255,.8)}.funrun-award .cert-team{top:29.5%;font-size:5mm;color:#7a6330;letter-spacing:.16em;font-family:"Yu Gothic","Hiragino Sans",sans-serif;font-weight:700}.funrun-award .cert-recipient{top:38.5%;left:17%;right:17%;font-size:11.5mm;border-bottom:.35mm solid #7b8d82}.funrun-detail{position:absolute;top:50.5%;left:12%;right:12%;font-size:5.4mm;font-weight:700;color:#4d6258}.funrun-award .cert-body{top:59.5%;left:16%;right:16%;font-size:5.2mm;line-height:2.05}.funrun-award .cert-date{top:79.5%}.funrun-award .cert-issuer{top:83%}.record-certificate .cert-recipient{top:34%}.record-table{position:absolute;top:48%;left:24%;right:24%;font-size:5mm;text-align:left}.record-table>div{display:grid;grid-template-columns:1fr 1.4fr;gap:8mm;border-bottom:1px solid #98aab7;padding:2.5mm 1mm}.record-table strong{text-align:right;font-size:5.4mm}.record-certificate .cert-date{top:79%}.record-certificate .cert-issuer{top:83%}@media print{body{background:#fff}.toolbar{display:none}.cert-page{margin:0;box-shadow:none}}`}
+@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#e7edf3;font-family:"Yu Mincho","Hiragino Mincho ProN","Noto Serif JP",serif;color:#172b3c;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:10px;background:#102b47;color:#fff;text-align:center;font-family:sans-serif}.toolbar button{border:0;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}.cert-page{width:210mm;height:297mm;position:relative;margin:12px auto;background:#fff;overflow:hidden;page-break-after:always;box-shadow:0 8px 28px #0002}.cert-page:last-child{page-break-after:auto}.cert-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cert-content{position:absolute;inset:0;text-align:center}.cert-title{position:absolute;top:14%;left:10%;right:10%;font-size:21mm;font-weight:700;letter-spacing:.18em;color:#1e3550}.cert-subtitle{position:absolute;top:28.5%;left:12%;right:12%;font-size:10mm;font-weight:700;color:#9b752d}.cert-recipient{position:absolute;top:39%;left:15%;right:15%;font-size:11mm;font-weight:700;border-bottom:.3mm solid #788795;padding-bottom:3mm}.cert-recipient small{font-size:5mm;font-weight:500}.cert-detail{position:absolute;top:49%;left:12%;right:12%;font-size:5mm}.cert-record{position:absolute;top:54%;left:12%;right:12%;font-size:8mm;font-weight:700;color:#183d63}.cert-body{position:absolute;top:63%;left:15%;right:15%;font-size:5.2mm;line-height:2}.cert-body.compact{top:70%}.cert-date{position:absolute;top:79%;left:15%;right:15%;font-size:4.8mm}.cert-issuer{position:absolute;top:83%;left:27%;right:18%;min-height:20mm;font-size:5mm;display:flex;align-items:center;justify-content:flex-end;gap:4mm}.cert-issuer span{font-size:4.2mm}.cert-issuer strong{font-size:5.2mm}.cert-seal-image{width:19mm;height:19mm;object-fit:contain}.cert-seal-text{--seal-cols:2;--seal-rows:2;position:relative;width:19mm;height:19mm;border:1mm solid #a91f25;color:#a91f25;display:grid;place-items:center;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:4.3mm;font-weight:900;line-height:1;background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 .45mm #a91f25;padding:1.8mm}.cert-seal-text:after{content:"";position:absolute;inset:.8mm;border:.28mm solid rgba(169,31,37,.8);pointer-events:none}.seal-glyph-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(var(--seal-cols),1fr);grid-template-rows:repeat(var(--seal-rows),1fr);align-items:center;justify-items:center}.seal-glyph-grid i{font-style:normal;line-height:1}.cert-team{position:absolute;top:29%;left:12%;right:12%;font-size:5.5mm}.record-certificate{font-family:"Yu Gothic","Hiragino Sans",sans-serif;color:#163d62}.record-certificate .cert-title{top:20%;font-size:17mm;letter-spacing:.12em;color:#173f65}.record-certificate .cert-team{top:30.5%;font-size:6mm;font-weight:800;color:#3d6f99}.record-certificate .cert-recipient{top:37.5%;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;color:#152f49}.record-table{position:absolute;top:49%;left:21%;right:21%;font-size:5mm;text-align:left}.record-table>div{display:grid;grid-template-columns:1fr 1.45fr;gap:8mm;border-bottom:.35mm solid #b9cfdf;padding:3mm 1mm}.record-table strong{text-align:right;font-size:5.5mm;color:#113e68}.record-certificate .cert-date{top:80%}.record-certificate .cert-issuer{top:84%}.funrun-kicker{position:absolute;top:11%;left:18%;right:18%;font-family:Arial,sans-serif;font-size:3.2mm;font-weight:700;letter-spacing:.24em;color:#668f79}.funrun-award{font-family:"Yu Gothic","Hiragino Sans",sans-serif;color:#38584a}.funrun-award .cert-title{top:16%;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:17mm;color:#3e765e;letter-spacing:.06em}.funrun-award .cert-team{top:29%;font-size:5mm;color:#7c6b3d;letter-spacing:.12em;font-weight:700}.funrun-award .cert-recipient{top:39%;left:18%;right:18%;font-family:"Yu Mincho","Hiragino Mincho ProN",serif;font-size:11mm;border-bottom:.3mm solid #9fb5a7;color:#284f3d}.funrun-detail{position:absolute;top:51%;left:12%;right:12%;font-size:5mm;font-weight:700;color:#61786b}.funrun-award .cert-body{top:60%;left:17%;right:17%;font-size:5mm;line-height:2}.funrun-award .cert-date{top:80%}.funrun-award .cert-issuer{top:84%}@media print{body{background:#fff}.toolbar{display:none}.cert-page{margin:0;box-shadow:none}}`}
 function openCertificatePages(pages,title='証書プレビュー'){
   if(!pages.length){toast('出力できるデータがありません');return;}const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${certificatePrintStyles()}</style></head><body><div class="toolbar"><button onclick="window.print()">PDF・印刷</button>　${esc(title)}（${pages.length}枚）</div>${pages.join('')}</body></html>`);w.document.close();
 }
@@ -875,7 +883,7 @@ function renderFunRunAdmin(){
 }
 document.getElementById('adminAddFunRunBtn')?.addEventListener('click',()=>{const name=document.getElementById('adminFunRunName').value.trim(),age=Number(document.getElementById('adminFunRunAge').value),category=document.getElementById('adminFunRunCategory').value;if(!name||!Number.isFinite(age)||age<0){toast('氏名と年齢を入力してください');return;}const row=makeFunRunEntry(name,age,category,'admin');queueWrite(`funRunEntries/${row.id}`,row);document.getElementById('adminFunRunName').value='';document.getElementById('adminFunRunAge').value='';toast('当日受付を追加し、参加済みにしました');});
 document.getElementById('loadDemoFunRunBtn')?.addEventListener('click',()=>{const merged={...(state.funRunEntries||{})};[['大豊 はな',5,'未就学'],['大杉 そら',6,'未就学'],['豊永 りく',4,'未就学'],['清流 ゆい',7,'小学生']].forEach((x,i)=>{const r=makeFunRunEntry(x[0],x[1],x[2],'admin');r.attended=i<3;merged[r.id]=r;});queueWrite('funRunEntries',merged);toast('ダミー参加者を4名追加しました');});
-document.getElementById('exportFunRunBtn')?.addEventListener('click',()=>{const out=[['receipt_no','name','age','category','guardian','phone','notes','attended','submitted_at']];funRunEntryList().forEach(r=>out.push([r.receiptNo||'',r.name||'',r.age??'',r.category||'',r.guardian||'',r.phone||'',r.notes||'',r.attended?'yes':'no',r.submittedAt?new Date(r.submittedAt).toISOString():'']));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'funrun_participants_v15.csv','text/csv;charset=utf-8');});
+document.getElementById('exportFunRunBtn')?.addEventListener('click',()=>{const out=[['receipt_no','name','age','category','guardian','phone','notes','attended','submitted_at']];funRunEntryList().forEach(r=>out.push([r.receiptNo||'',r.name||'',r.age??'',r.category||'',r.guardian||'',r.phone||'',r.notes||'',r.attended?'yes':'no',r.submittedAt?new Date(r.submittedAt).toISOString():'']));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'funrun_participants_v1.csv','text/csv;charset=utf-8');});
 document.getElementById('printFunRunAttendedBtn')?.addEventListener('click',()=>printFunRunCertificates(true));
 
 function readLegDistanceDraft(){
@@ -955,7 +963,7 @@ function deleteApplication(id){const a=state.applications?.[id];if(!a)return;if(
 
 function renderTeamManagement(){
   const teams=teamList(),el=document.getElementById('teamManagementList');if(!teams.length){el.innerHTML='<div class="empty-state">登録チームはありません。</div>';return;}
-  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).length}/${getLegCount()}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn" data-rename-team="${esc(t.teamNo)}">名称変更</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">PDF・印刷</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${teamColorMark(t.teamNo,'large')}${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).length}/${getLegCount()}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn" data-rename-team="${esc(t.teamNo)}">名称変更</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">PDF・印刷</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
   el.querySelectorAll('[data-rename-team]').forEach(b=>b.addEventListener('click',()=>renameTeam(b.dataset.renameTeam)));
   el.querySelectorAll('[data-regenerate-code]').forEach(b=>b.addEventListener('click',()=>regenerateTeamCode(b.dataset.regenerateCode)));
   el.querySelectorAll('[data-print-team]').forEach(b=>b.addEventListener('click',()=>printTeamGuide([b.dataset.printTeam])));
@@ -1016,41 +1024,95 @@ function makeDummyApplication(seed){
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
 document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
 document.getElementById('exportApplicationsBtn').addEventListener('click',()=>{
-  const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_applications_v03.csv','text/csv;charset=utf-8');
+  const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_applications_v1.csv','text/csv;charset=utf-8');
 });
 
+// ---------- v1.0 production readiness / backup ----------
+function productionReadiness(){
+  const cfg=state.settings||{},prod=cfg.production||{},ds=courseDistanceSummary();
+  const items=[
+    {key:'sync',label:'Supabase同期',ok:!supabaseMode||supabaseConnected,detail:supabaseMode?(supabaseConnected?'ONLINE':'OFFLINE'):'LOCAL'},
+    {key:'event',label:'大会名・開催日・会場',ok:!!String(cfg.eventName||'').trim()&&!!cfg.eventDate&&!!String(cfg.venue||'').trim(),detail:cfg.eventDate||'開催日未設定'},
+    {key:'entry',label:'申込締切',ok:!!cfg.entryDeadline||cfg.entryOpen===false,detail:cfg.entryOpen?(cfg.entryDeadline||'未設定'):'受付停止中'},
+    {key:'course',label:'区間数・区間距離',ok:getLegCount()>0&&ds.complete,detail:`${getLegCount()}区間 / 距離 ${ds.setCount}/${getLegCount()}区間設定`},
+    {key:'teams',label:'チーム登録',ok:teamList().length>0,detail:`${teamList().length}チーム`},
+    {key:'codes',label:'管理者・計測係コード',ok:!!prod.codesConfirmed,detail:prod.codesConfirmed?'変更済み確認':'初期コードから変更したか未確認'},
+    {key:'awards',label:'表彰設定',ok:Number(state.awards?.teamTopN||0)>0,detail:`チーム上位${Number(state.awards?.teamTopN||3)}位`},
+    {key:'certificate',label:'証書・発行者設定',ok:!!String(certificateConfig().issuerName||'').trim(),detail:certificateConfig().issuerName||'未設定'},
+    {key:'queue',label:'未送信データ',ok:pendingQueue.length===0,detail:`${pendingQueue.length}件`},
+    {key:'backup',label:'最新バックアップ',ok:!!prod.lastBackupAt,detail:prod.lastBackupAt?new Date(prod.lastBackupAt).toLocaleString('ja-JP'):'未作成'}
+  ];
+  const done=items.filter(x=>x.ok).length;return {items,done,complete:done===items.length};
+}
+function renderProductionChecklist(){
+  const box=document.getElementById('productionChecklist');if(!box)return;const r=productionReadiness(),score=document.getElementById('productionScore'),badge=document.getElementById('productionBadge');
+  if(score)score.textContent=`${r.done}/${r.items.length}`;if(badge){badge.textContent=r.complete?'本番準備完了':'要確認';badge.className='mini-badge '+(r.complete?'online':'warning');}
+  box.innerHTML=r.items.map(x=>`<div class="production-check ${x.ok?'ok':'warn'}"><span class="production-check-icon">${x.ok?'✓':'!'}</span><div><strong>${esc(x.label)}</strong><small>${esc(x.detail)}</small></div></div>`).join('');
+}
+function safeBackupState(){
+  const s=structuredClone(state);delete s.credentials;s.locks={operators:{},teams:{}};delete s.eventArchives;
+  return s;
+}
+function exportBackupJson(){
+  if(currentSession?.role!=='admin'){toast('管理者ログインが必要です');return;}
+  const prod={...(state.settings?.production||{}),lastBackupAt:syncedNow()};queueWrite('settings',{...(state.settings||{}),production:prod});
+  const payload={schema:'otoyo-ekiden-timer-backup',version:1,appVersion:APP_VERSION,exportedAt:new Date().toISOString(),eventId:currentEventId(),eventName:state.settings?.eventName||'',state:safeBackupState(),teamCodes:{...privateTeamCodes}};
+  const date=new Date().toISOString().slice(0,10).replaceAll('-','');downloadText(JSON.stringify(payload,null,2),`ekiden_backup_${date}.json`,'application/json;charset=utf-8');toast('現在大会のバックアップを保存しました');
+}
+function exportTeamsCsv(){
+  const out=[['team_no','team_name','runner_leg','runner_name','sex','age_group','age','distance_km']];teamList().forEach(t=>(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).sort((a,b)=>a.leg-b.leg).forEach(r=>out.push([t.teamNo,t.teamName,r.leg,r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),r.age??'',getLegDistance(r.leg)??''])));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_teams_v1.csv','text/csv;charset=utf-8');
+}
+async function restoreBackupFile(file){
+  if(!file)return;let payload;try{payload=JSON.parse(await file.text());}catch{toast('JSONファイルを読み込めませんでした');return;}
+  if(payload?.schema!=='otoyo-ekiden-timer-backup'||!payload.state){toast('駅伝アプリのバックアップ形式ではありません');return;}
+  if(state.meta?.raceStatus==='running'){toast('計測中は復元できません');return;}if(supabaseMode&&!supabaseConnected){toast('SupabaseがONLINEのときに復元してください');return;}if(pendingQueue.length){toast('未送信データの同期完了後に復元してください');return;}
+  const name=payload.eventName||payload.state?.settings?.eventName||'大会';if(!confirm(`バックアップ「${name}」を現在大会へ復元しますか？\n\n現在大会の申込・チーム・計測記録は置き換わります。過去大会アーカイブと管理者・計測係コードは残ります。`))return;
+  const typed=prompt('誤操作防止のため「復元」と入力してください。');if(typed!=='復元'){toast('復元を中止しました');return;}
+  if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error(error);toast('復元前の端末セッション整理に失敗しました');return;}}
+  privateTeamCodes={};if(!(await purgeCurrentEventRows())){toast('現在大会データの整理に失敗しました');return;}
+  const incoming=normalizeState(payload.state);incoming.eventArchives=state.eventArchives||{};incoming.credentials=state.credentials||freshState().credentials;incoming.locks={operators:{},teams:{}};incoming.meta={...incoming.meta,version:100};
+  const roots=['meta','settings','applications','funRunEntries','teams','officialMeasurements','teamMeasurements','adoptions','overrides','locks','notices','awards'];roots.forEach(k=>queueWrite(k,incoming[k]));
+  if(supabaseMode){for(const [no,code] of Object.entries(payload.teamCodes||{})){if(code)await setTeamSecret(no,code);}}
+  toast('バックアップを復元しました。同期完了を確認してください');
+}
 // ---------- Admin ----------
 function renderAdmin(){
   const passes=computedPasses();document.getElementById('adminTeamCount').textContent=teamList().length;document.getElementById('adminLegCount').textContent=getLegCount();document.getElementById('adminPassCount').textContent=passes.length;
   const pill=document.getElementById('raceStatusPill');pill.textContent=statusLabel();pill.className='status-pill '+(state.meta.raceStatus==='running'?'running':state.meta.raceStatus==='finished'?'finished':'');
   document.getElementById('startRaceBtn').disabled=state.meta.raceStatus==='running';document.getElementById('finishRaceBtn').disabled=state.meta.raceStatus!=='running';
   renderEventSettings();renderEntryQr();renderFunRunQr();renderApplications();renderFunRunAdmin();renderTeamManagement();
-  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderCertificateSettings();renderEventManager();renderSyncStatus();
+  renderTeamCodes();renderAdminPassLog();renderRawOfficialLog();renderTeamBackupLog();renderNoticeBoardAdmin();renderAwardsAdmin();renderCertificateSettings();renderEventManager();renderSyncStatus();renderProductionChecklist();
 }
 document.getElementById('createNewEventBtn')?.addEventListener('click',()=>createNewAnnualEvent());
 document.getElementById('startRaceBtn').addEventListener('click',()=>{
-  if(!teamList().length&&!confirm('チーム登録がありません。このまま開始しますか？'))return;if(!confirm('全チーム一斉スタートとして計測を開始します。よろしいですか？'))return;
+  if(!teamList().length&&!confirm('チーム登録がありません。このまま開始しますか？'))return;
+  const ready=productionReadiness();if(!ready.complete&&!confirm(`本番前チェックが ${ready.done}/${ready.items.length} 項目です。未完了項目がありますが、計測を開始しますか？`))return;
+  if(!confirm('全チーム一斉スタートとして計測を開始します。開始時刻はこの操作で確定します。よろしいですか？'))return;
   queueWrite('meta',{...state.meta,raceStatus:'running',startAt:syncedNow(),finishAt:null});toast('一斉スタートしました');
 });
-document.getElementById('finishRaceBtn').addEventListener('click',()=>{queueWrite('meta',{...state.meta,raceStatus:'finished',finishAt:syncedNow()});toast('競技終了にしました');});
+document.getElementById('finishRaceBtn').addEventListener('click',()=>{if(!confirm('競技を終了しますか？終了すると計測ボタンが無効になります。'))return;queueWrite('meta',{...state.meta,raceStatus:'finished',finishAt:syncedNow()});toast('競技終了にしました');});
 document.getElementById('saveNoticeBtn').addEventListener('click',()=>{const notice=createNoticeFromForm(); if(!notice)return; queueWrite(`notices/${notice.id}`,notice); queueWrite('meta/notice',notice.body); toast('掲示板に投稿しました'); clearNoticeForm();});
 document.getElementById('clearNoticeFormBtn').addEventListener('click',()=>clearNoticeForm());
 document.getElementById('saveAccessCodesBtn').addEventListener('click',async()=>{
   const a=document.getElementById('newAdminCode').value.trim(),A=document.getElementById('newOpACode').value.trim(),B=document.getElementById('newOpBCode').value.trim(),C=document.getElementById('newOpCCode').value.trim();
   if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_update_access_codes',{p_admin:a||null,p_a:A||null,p_b:B||null,p_c:C||null});if(error){console.error(error);toast('アクセスコード更新に失敗しました');return;}}
   else {const cred=structuredClone(state.credentials||{adminHash:'',operatorHashes:{}});cred.operatorHashes=cred.operatorHashes||{};if(a)cred.adminHash=await sha256(a);if(A)cred.operatorHashes.A=await sha256(A);if(B)cred.operatorHashes.B=await sha256(B);if(C)cred.operatorHashes.C=await sha256(C);queueWrite('credentials',cred);}
-  ['newAdminCode','newOpACode','newOpBCode','newOpCCode'].forEach(id=>document.getElementById(id).value='');toast('アクセスコードを更新しました');
+  const changed=!!(a||A||B||C);['newAdminCode','newOpACode','newOpBCode','newOpCCode'].forEach(id=>document.getElementById(id).value='');if(changed){const prod={...(state.settings?.production||{}),codesConfirmed:true,codesConfirmedAt:syncedNow()};queueWrite('settings',{...(state.settings||{}),production:prod});}toast('アクセスコードを更新しました');
 });
+document.getElementById('confirmCodesBtn')?.addEventListener('click',()=>{if(!confirm('管理者・計測係A/B/Cのコードが初期値ではないことを確認しましたか？'))return;const prod={...(state.settings?.production||{}),codesConfirmed:true,codesConfirmedAt:syncedNow()};queueWrite('settings',{...(state.settings||{}),production:prod});toast('本番コード設定済みとして確認しました');});
+document.getElementById('exportBackupBtn')?.addEventListener('click',exportBackupJson);
+document.getElementById('exportTeamsCsvBtn')?.addEventListener('click',exportTeamsCsv);
+document.getElementById('restoreBackupInput')?.addEventListener('change',async e=>{const f=e.target.files?.[0];if(f)await restoreBackupFile(f);e.target.value='';});
 
 function renderTeamCodes(){
   const el=document.getElementById('teamCodeList'),teams=teamList();if(!teams.length){el.innerHTML='<div class="empty-state">チーム未登録</div>';return;}
-  el.innerHTML=`<table class="data-table"><thead><tr><th>チーム</th><th>コード</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${esc(t.teamNo)} ${esc(t.teamName)}</td><td><code>${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</code></td></tr>`).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>チーム</th><th>コード</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${teamColorMark(t.teamNo)}${esc(t.teamNo)} ${esc(t.teamName)}</td><td><code>${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</code></td></tr>`).join('')}</tbody></table>`;
 }
 function renderAdminPassLog(){
   const rows=computedPasses().sort((a,b)=>b.officialAt-a.officialAt),el=document.getElementById('adminPassLog');if(!rows.length){el.innerHTML='<div class="empty-state">まだ正式通過記録はありません。</div>';return;}
   el.innerHTML=`<table class="data-table"><thead><tr><th>チーム</th><th>区間</th><th>走者</th><th>正式通過</th><th>区間タイム</th><th>根拠</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(p=>{
     const reason=p.source==='official'?p.usedRows.map(r=>`${r.operator}:${fmtTimeOfDay(r.at)}`).join(' / '):'チーム参考記録';const status=p.source==='team-adopted'?'参考記録採用':p.review?`差 ${p.spread}ms`:`${p.count}名計測`;
-    return `<tr><td>${esc(p.teamNo)} ${esc(p.teamName)}</td><td>${p.leg}/${getLegCount()}</td><td>${esc(runnerFor(p.teamNo,p.leg)?.name||'')}</td><td>${fmtTimeOfDay(p.officialAt)}${p.override?' *':''}</td><td>${fmtClock(lapTime(p))}</td><td>${esc(reason)}</td><td>${esc(status)}</td><td><button class="text-btn" data-edit-time="${esc(p.eventId)}">時刻修正</button>${p.source==='team-adopted'?` <button class="text-btn" data-unadopt="${esc(p.eventId)}">採用取消</button>`:''}</td></tr>`;
+    return `<tr><td>${teamColorMark(p.teamNo)}${esc(p.teamNo)} ${esc(p.teamName)}</td><td>${p.leg}/${getLegCount()}</td><td>${esc(runnerFor(p.teamNo,p.leg)?.name||'')}</td><td>${fmtTimeOfDay(p.officialAt)}${p.override?' *':''}</td><td>${fmtClock(lapTime(p))}</td><td>${esc(reason)}</td><td>${esc(status)}</td><td><button class="text-btn" data-edit-time="${esc(p.eventId)}">時刻修正</button>${p.source==='team-adopted'?` <button class="text-btn" data-unadopt="${esc(p.eventId)}">採用取消</button>`:''}</td></tr>`;
   }).join('')}</tbody></table>`;
   el.querySelectorAll('[data-edit-time]').forEach(b=>b.addEventListener('click',()=>editPassTime(b.dataset.editTime)));
   el.querySelectorAll('[data-unadopt]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.unadopt;queueWrite(`adoptions/${id}`,null,true);queueWrite(`overrides/${id}`,null,true);toast('チーム参考記録の採用を取り消しました');}));
@@ -1068,14 +1130,14 @@ function renderRawOfficialLog(){
 }
 function renderTeamBackupLog(){
   const groups=teamList().flatMap(t=>teamGroups(t.teamNo)).sort((a,b)=>b.at-a.at),el=document.getElementById('teamBackupLog');if(!groups.length){el.innerHTML='<div class="empty-state">チーム参考計測はまだありません。</div>';return;}
-  el.innerHTML=`<table class="data-table"><thead><tr><th>チーム</th><th>参考時刻</th><th>状態</th><th>操作</th></tr></thead><tbody>${groups.map(g=>{const adopted=!!state.adoptions?.[g.eventId]?.active,matched=isTeamGroupMatched(g);return `<tr><td>${esc(g.teamNo)} ${esc(getTeam(g.teamNo)?.teamName||'')}</td><td>${fmtTimeOfDay(g.at)}</td><td>${adopted?'正式記録に採用済':matched?'運営記録あり':'未照合'}</td><td>${adopted?`<button class="text-btn" data-backup-unadopt="${esc(g.eventId)}">採用取消</button>`:matched?'—':`<button class="text-btn" data-backup-adopt="${esc(g.eventId)}">正式記録に採用</button>`}</td></tr>`;}).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>チーム</th><th>参考時刻</th><th>状態</th><th>操作</th></tr></thead><tbody>${groups.map(g=>{const adopted=!!state.adoptions?.[g.eventId]?.active,matched=isTeamGroupMatched(g);return `<tr><td>${teamColorMark(g.teamNo)}${esc(g.teamNo)} ${esc(getTeam(g.teamNo)?.teamName||'')}</td><td>${fmtTimeOfDay(g.at)}</td><td>${adopted?'正式記録に採用済':matched?'運営記録あり':'未照合'}</td><td>${adopted?`<button class="text-btn" data-backup-unadopt="${esc(g.eventId)}">採用取消</button>`:matched?'—':`<button class="text-btn" data-backup-adopt="${esc(g.eventId)}">正式記録に採用</button>`}</td></tr>`;}).join('')}</tbody></table>`;
   el.querySelectorAll('[data-backup-adopt]').forEach(b=>b.addEventListener('click',()=>{if(confirm('このチーム参考記録を正式記録の補完として採用しますか？')){queueWrite(`adoptions/${b.dataset.backupAdopt}`,{active:true,adoptedAt:syncedNow()});toast('正式記録に採用しました');}}));
   el.querySelectorAll('[data-backup-unadopt]').forEach(b=>b.addEventListener('click',()=>{queueWrite(`adoptions/${b.dataset.backupUnadopt}`,null,true);toast('採用を取り消しました');}));
 }
 
 // ---------- CSV temporary entry ----------
 document.getElementById('downloadCsvBtn').addEventListener('click',()=>{
-  const rows=[['team_no','team_name','team_code','runner_name','sex','age_group','leg'],['1','大豊A','1001','山田 太郎','男','中学生','1'],['1','大豊A','1001','佐藤 花子','女','一般（～29歳）','2']];downloadText('\uFEFF'+rows.map(r=>r.join(',')).join('\r\n'),'ekiden_entry_template_v02.csv','text/csv;charset=utf-8');
+  const rows=[['team_no','team_name','team_code','runner_name','sex','age_group','leg'],['1','大豊A','1001','山田 太郎','男','中学生','1'],['1','大豊A','1001','佐藤 花子','女','一般（～29歳）','2']];downloadText('\uFEFF'+rows.map(r=>r.join(',')).join('\r\n'),'ekiden_entry_template_v1.csv','text/csv;charset=utf-8');
 });
 document.getElementById('csvInput').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;try{csvPending=parseEntryCsv(await f.text());renderCsvPreview(csvPending);document.getElementById('commitCsvBtn').disabled=!csvPending.valid;}catch(err){csvPending=null;document.getElementById('csvPreview').innerHTML=`<b>読み込みエラー：</b>${esc(err.message)}`;document.getElementById('commitCsvBtn').disabled=true;}});
 document.getElementById('commitCsvBtn').addEventListener('click',async()=>{if(!csvPending?.valid)return;if(supabaseMode){for(const t of Object.values(csvPending.teams)){if(!(await setTeamSecret(t.teamNo,t.accessCode)))return;}}queueWrite('teams',csvPending.teams);clearRaceMeasurements();csvPending=null;document.getElementById('commitCsvBtn').disabled=true;toast('チームデータを登録しました');});
@@ -1094,7 +1156,7 @@ function clearRaceMeasurements(){queueWrite('officialMeasurements',{});queueWrit
 // ---------- Official timer ----------
 function renderTimer(){
   document.getElementById('operatorLabel').textContent=`計測係 ${currentOperator||'-'}`;document.getElementById('racePhaseLabel').textContent=statusLabel();document.getElementById('timerNote').textContent=state.meta.raceStatus==='running'?'接近するチームを声かけで押し分けてください。複数人の計測値は自動統合されます。':state.meta.raceStatus==='finished'?'競技は終了しています。':'管理者が一斉スタートを押すと計測できます。';
-  const wrap=document.getElementById('teamButtons'),teams=teamList();if(!teams.length)wrap.innerHTML='<div class="empty-state" style="grid-column:1/-1">チームが未登録です。</div>';else wrap.innerHTML=teams.map(t=>{const leg=teamProgress(t.teamNo)+1,count=getLegCount();return `<button class="team-btn ${leg>count?'finished':''}" data-team="${esc(t.teamNo)}" ${state.meta.raceStatus!=='running'||leg>count?'disabled':''}><strong>${esc(t.teamNo)}</strong><span>${esc(t.teamName)}</span><span class="leg">${leg>count?'FINISH':`次：${legLabel(leg)}`}</span></button>`;}).join('');wrap.querySelectorAll('[data-team]').forEach(b=>b.addEventListener('click',()=>recordOfficialMeasurement(b.dataset.team)));renderTimerLog();
+  const wrap=document.getElementById('teamButtons'),teams=teamList();if(!teams.length)wrap.innerHTML='<div class="empty-state" style="grid-column:1/-1">チームが未登録です。</div>';else wrap.innerHTML=teams.map(t=>{const leg=teamProgress(t.teamNo)+1,count=getLegCount();return `<button class="team-btn ${leg>count?'finished':''}" style="--team-color:${teamColor(t.teamNo)}" data-team="${esc(t.teamNo)}" ${state.meta.raceStatus!=='running'||leg>count?'disabled':''}><strong>${esc(t.teamNo)}</strong><span>${esc(t.teamName)}</span><span class="leg">${leg>count?'FINISH':`次：${legLabel(leg)}`}</span></button>`;}).join('');wrap.querySelectorAll('[data-team]').forEach(b=>b.addEventListener('click',()=>recordOfficialMeasurement(b.dataset.team)));renderTimerLog();
 }
 function recordOfficialMeasurement(teamNo){
   if(state.meta.raceStatus!=='running'||!currentOperator)return;const t=getTeam(teamNo);if(!t)return;const id=makeId('om'),rec={id,teamNo:String(t.teamNo),teamName:t.teamName,operator:currentOperator,at:syncedNow(),localAt:Date.now(),deviceId:DEVICE_ID,status:'active'};queueWrite(`officialMeasurements/${id}`,rec);toast(`${t.teamName} を記録`);
@@ -1107,7 +1169,7 @@ document.getElementById('timerLogoutBtn').addEventListener('click',async()=>{awa
 
 // ---------- Team backup timer ----------
 function renderTeamTimer(){
-  const t=getTeam(currentTeamNo);if(!t){document.getElementById('teamTimerName').textContent='未登録';return;}document.getElementById('teamTimerNo').textContent=`チーム ${t.teamNo}`;document.getElementById('teamTimerName').textContent=t.teamName;const groups=teamGroups(t.teamNo);const next=groups.length+1,count=getLegCount();document.getElementById('teamPassLeg').textContent=next>count?'FINISH':legLabel(next);document.getElementById('teamPassBtn').disabled=state.meta.raceStatus!=='running'||next>count;document.getElementById('teamTimerNote').textContent=state.meta.raceStatus==='running'?'自チームの選手が計測地点を通過した瞬間に押してください。':state.meta.raceStatus==='finished'?'競技は終了しています。':'管理者が一斉スタートを押すと計測できます。';document.getElementById('teamRecordCount').textContent=`${groups.length}件`;document.getElementById('teamTimerLog').innerHTML=groups.length?`<div class="log-list">${groups.slice().reverse().slice(0,getLegCount()).map((g,i)=>`<div class="log-item"><span class="log-time">${fmtTimeOfDay(g.at)}</span><span>${esc(t.teamName)}</span><span class="measure-badge">参考</span></div>`).join('')}</div>`:'<div class="empty-state">まだ参考記録がありません。</div>';document.getElementById('teamUndoBtn').disabled=!groups.length;
+  const t=getTeam(currentTeamNo);if(!t){document.getElementById('teamTimerName').textContent='未登録';return;}const teamHeader=document.querySelector('#screen-team-timer .timer-header-card'),teamPass=document.getElementById('teamPassBtn');if(teamHeader)teamHeader.style.setProperty('--team-color',teamColor(t.teamNo));if(teamPass)teamPass.style.setProperty('--team-color',teamColor(t.teamNo));document.getElementById('teamTimerNo').textContent=`チーム ${t.teamNo}`;document.getElementById('teamTimerName').textContent=t.teamName;const groups=teamGroups(t.teamNo);const next=groups.length+1,count=getLegCount();document.getElementById('teamPassLeg').textContent=next>count?'FINISH':legLabel(next);document.getElementById('teamPassBtn').disabled=state.meta.raceStatus!=='running'||next>count;document.getElementById('teamTimerNote').textContent=state.meta.raceStatus==='running'?'自チームの選手が計測地点を通過した瞬間に押してください。':state.meta.raceStatus==='finished'?'競技は終了しています。':'管理者が一斉スタートを押すと計測できます。';document.getElementById('teamRecordCount').textContent=`${groups.length}件`;document.getElementById('teamTimerLog').innerHTML=groups.length?`<div class="log-list">${groups.slice().reverse().slice(0,getLegCount()).map((g,i)=>`<div class="log-item"><span class="log-time">${fmtTimeOfDay(g.at)}</span><span>${esc(t.teamName)}</span><span class="measure-badge">参考</span></div>`).join('')}</div>`:'<div class="empty-state">まだ参考記録がありません。</div>';document.getElementById('teamUndoBtn').disabled=!groups.length;
 }
 document.getElementById('teamPassBtn').addEventListener('click',()=>{const t=getTeam(currentTeamNo);if(!t||state.meta.raceStatus!=='running')return;const id=makeId('tm'),rec={id,teamNo:String(t.teamNo),teamName:t.teamName,at:syncedNow(),localAt:Date.now(),deviceId:DEVICE_ID,status:'active'};queueWrite(`teamMeasurements/${teamKey(t.teamNo)}/${id}`,rec);toast('チーム参考タイムを記録しました');});
 document.getElementById('teamUndoBtn').addEventListener('click',()=>{const rows=activeTeamMeasurements(currentTeamNo).sort((a,b)=>b.at-a.at);const last=rows[0];if(!last)return;queueWrite(`teamMeasurements/${teamKey(currentTeamNo)}/${last.id}`,null,true);toast('直前の参考記録を取り消しました');});
@@ -1122,7 +1184,7 @@ function renderParticipant(){
   el.innerHTML=ranking.map((r,i)=>{
     const progress=r.legs===0?'未通過':r.legs>=getLegCount()?'FINISH':`第${r.legs}区間`;
     const records=r.passes.length?r.passes.map(p=>{const runner=runnerFor(p.teamNo,p.leg)||{};return `<div class="team-record-row"><span class="record-leg">${esc(legLabel(p.leg))}</span><span class="record-runner">${esc(runner.name||'走者未登録')}</span><span class="record-lap">${fmtClock(lapTime(p))}</span><span class="record-total">累積 ${state.meta.startAt?fmtClock(p.officialAt-state.meta.startAt):'--:--'}</span></div>`;}).join(''):'<div class="team-record-empty">まだ通過記録はありません。</div>';
-    return `<details class="participant-team-item"><summary><div class="team-rank-badge">${i+1}<small>位</small></div><div class="team-summary-name"><strong>${esc(r.team.teamName)}</strong><span>チーム ${esc(r.team.teamNo)}</span></div><div class="team-summary-progress"><span>${progress}</span><strong>${r.total!=null?fmtClock(r.total):'--:--'}</strong></div><b class="disclosure-mark">＋</b></summary><div class="team-record-body">${records}</div></details>`;
+    return `<details class="participant-team-item" style="--team-color:${teamColor(r.team.teamNo)}"><summary><div class="team-rank-badge">${i+1}<small>位</small></div><div class="team-summary-name"><strong>${teamColorMark(r.team.teamNo)}${esc(r.team.teamName)}</strong><span>チーム ${esc(r.team.teamNo)}</span></div><div class="team-summary-progress"><span>${progress}</span><strong>${r.total!=null?fmtClock(r.total):'--:--'}</strong></div><b class="disclosure-mark">＋</b></summary><div class="team-record-body">${records}</div></details>`;
   }).join('');
 }
 
@@ -1145,15 +1207,15 @@ const demoNames=['大豊A','大杉A','豊永A','清流A','北山A','南風A','�
 function demoTeams(){const obj={};demoNames.forEach((name,i)=>{const no=String(i+1);obj[teamKey(no)]={teamNo:no,teamName:name,accessCode:String(1001+i),runners:Array.from({length:getLegCount()},(_,j)=>({name:`選手${j+1}`,sex:j%2?'女':'男',ageGroup:j%4===0?'小学生':j%4===1?'中学生':j%4===2?'一般（～29歳）':'一般（30歳～）',leg:j+1}))};});return obj;}
 document.getElementById('loadDemoBtn').addEventListener('click',async()=>{if(!confirm('デモ12チームを読み込み、現在の計測データを初期化しますか？'))return;const teams=demoTeams();if(supabaseMode){for(const t of Object.values(teams)){if(!(await setTeamSecret(t.teamNo,t.accessCode)))return;}}queueWrite('teams',teams);clearRaceMeasurements();toast('デモ12チームを読み込みました');});
 document.getElementById('resetBtn').addEventListener('click',async()=>{
-  if(!confirm('現在大会の駅伝申込・ファンラン受付・チーム・計測記録・設定を初期化します。過去大会アーカイブと管理者・計測係コードは残ります。よろしいですか？'))return;
+  if(!confirm('現在大会の駅伝申込・ファンラン受付・チーム・計測記録・設定を初期化します。過去大会アーカイブと管理者・計測係コードは残ります。よろしいですか？'))return;if(prompt('誤操作防止のため「初期化」と入力してください。')!=='初期化'){toast('初期化を中止しました');return;}
   if(supabaseMode&&!supabaseConnected){toast('SupabaseがONLINEのときに初期化してください');return;}if(pendingQueue.length){toast('未送信データの同期完了後に初期化してください');return;}
   if(supabaseMode&&supabaseReady){const {error}=await sb.rpc('ekiden_prepare_new_event');if(error){console.error('ekiden_prepare_new_event failed',error);const msg=String(error.message||error.details||'').slice(0,120);toast(`端末セッションの整理に失敗しました${msg?`：${msg}`:''}`);return;}}privateTeamCodes={};
   if(!(await purgeCurrentEventRows())){toast('現在大会データの整理に失敗しました');return;}
   const f=freshState(),keep={eventId:currentEventId(),eventYear:currentEventYear(),eventCreatedAt:state.meta?.eventCreatedAt||syncedNow()};
-  queueWrite('meta',{...f.meta,...keep,version:15});queueWrite('settings',f.settings);queueWrite('applications',{});queueWrite('funRunEntries',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',f.locks);queueWrite('notices',{});queueWrite('awards',f.awards);toast('現在大会を初期化しました');
+  queueWrite('meta',{...f.meta,...keep,version:100});queueWrite('settings',f.settings);queueWrite('applications',{});queueWrite('funRunEntries',{});queueWrite('teams',{});queueWrite('officialMeasurements',{});queueWrite('teamMeasurements',{});queueWrite('adoptions',{});queueWrite('overrides',{});queueWrite('locks',f.locks);queueWrite('notices',{});queueWrite('awards',f.awards);toast('現在大会を初期化しました');
 });
 document.getElementById('exportResultsBtn').addEventListener('click',()=>{
-  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v15.csv','text/csv;charset=utf-8');
+  const out=[['team_no','team_name','leg','distance_km','runner_name','sex','age_group','lap_time','total_time','source']];computedPasses().sort((a,b)=>naturalCompare(a.teamNo,b.teamNo)||a.leg-b.leg).forEach(p=>{const r=runnerFor(p.teamNo,p.leg)||{};out.push([p.teamNo,p.teamName,p.leg,getLegDistance(p.leg)??'',r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),fmtClock(lapTime(p)),fmtClock(p.officialAt-state.meta.startAt),p.source]);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_results_v1.csv','text/csv;charset=utf-8');
 });
 function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function downloadText(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
