@@ -7,7 +7,7 @@
   <title>駅伝大会運営システム | Ekiden</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=1.0" />
+  <link rel="stylesheet" href="styles.css?v=1.0.1" />
   <style>
     /* v0.15.1: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
@@ -165,6 +165,11 @@
                 <label>連絡先電話番号<input id="funRunPhone" inputmode="tel" placeholder="任意" /></label>
                 <label>備考<input id="funRunNotes" maxlength="120" placeholder="任意" /></label>
               </div>
+              <div class="funrun-animal-section">
+                <div class="funrun-animal-title">メダルのどうぶつ <span class="req">必須</span><small>すきなどうぶつを えらんでください</small></div>
+                <input id="funRunAnimal" type="hidden" value="" />
+                <div id="funRunAnimalChoices" class="animal-choice-grid"></div>
+              </div>
               <p class="form-note">※ファンランは順位・タイムを競いません。大会運営に必要な範囲で情報を使用します。</p>
             </fieldset>
             <label class="agree-line"><input id="funRunAgree" type="checkbox" required /> 入力内容を確認し、大会運営のために利用されることに同意します。</label>
@@ -246,7 +251,7 @@
           </article>
 
           <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0</span></div>
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0.1</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -309,7 +314,7 @@
 
           <article class="panel wide awards-admin-panel">
             <div class="panel-heading"><h2>正式結果・表彰設定</h2><div class="action-row wrap"><span class="mini-badge" id="formalResultsBadge">非公開</span><span class="mini-badge" id="individualAwardsBadge">個人賞 非公開</span></div></div>
-            <p class="hint">同じ選手が複数区間を走った場合、個人表彰の判定にはその選手の最速ラップだけを使用します。同タイムは同順位・同時受賞として扱います。</p>
+            <p class="hint">同じ選手が複数区間を走った場合は、その選手の最速ラップ1本だけを判定に使用します。また、全個人表彰を通して1人1回のみ受賞し、同じ人が別の賞でも上位になった場合は次の別の選手を繰り上げます。同タイムは同順位・同時受賞として扱います。</p>
             <div class="award-settings-grid">
               <label>チーム表彰順位<input id="awardTeamTopN" type="number" min="1" max="10" inputmode="numeric" value="3" /><small>上位何位まで表彰するか</small></label>
               <label class="award-toggle"><input type="checkbox" id="awardOverallFastest" checked /> 大会全区間の個人最速</label>
@@ -330,7 +335,7 @@
           </article>
 
           <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0</span></div>
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0.1</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -397,16 +402,17 @@
           </article>
 
           <article class="panel wide funrun-admin-panel">
-            <div class="panel-heading"><h2>ファンラン参加者</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoFunRunBtn">ダミー参加者を追加</button><button class="text-btn" id="exportFunRunBtn">CSV出力</button><button class="primary-btn" id="printFunRunAttendedBtn">参加済み分を一括PDF・印刷</button></div></div>
+            <div class="panel-heading"><h2>ファンラン参加者</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoFunRunBtn">ダミー参加者を追加</button><button class="text-btn" id="exportFunRunBtn">CSV出力</button><button class="primary-btn" id="printFunRunAttendedBtn">参加証を一括PDF・印刷</button><button class="secondary-btn" id="printFunRunMedalsBtn">メダルをA4・8枚印刷</button></div></div>
             <div class="application-stats" id="funRunStats"></div>
             <div class="funrun-quick-entry">
               <strong>当日受付を追加</strong>
               <input id="adminFunRunName" placeholder="参加者氏名" />
               <input id="adminFunRunAge" type="number" min="0" max="100" inputmode="numeric" placeholder="年齢" />
               <select id="adminFunRunCategory"><option>未就学</option><option>小学生</option><option>中学生</option><option>高校生</option><option>一般</option></select>
+              <select id="adminFunRunAnimal"><option value="cheetah">チーター</option><option value="kangaroo">カンガルー</option><option value="mouse">ネズミ</option><option value="panda">パンダ</option><option value="bear">クマ</option><option value="penguin">ペンギン</option><option value="dolphin">イルカ</option><option value="zebra">シマウマ</option></select>
               <button class="secondary-btn" id="adminAddFunRunBtn" type="button">当日受付を追加</button>
             </div>
-            <p class="hint">ファンランは承認不要です。「参加済み」にすると、参加証の一括出力対象になります。</p>
+            <p class="hint">ファンランは承認不要です。「参加済み」にすると、参加証とメダルの一括出力対象になります。メダルはA4縦に8枚（2列×4段）で配置します。</p>
             <div id="funRunList" class="table-wrap"></div>
           </article>
 
@@ -471,7 +477,7 @@
           </article>
 
           <article class="panel wide backup-panel">
-            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0</span></div>
+            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0.1</span></div>
             <p class="hint">JSONバックアップには申込者の個人情報とチーム用アクセスコードが含まれます。学校・大会事務局の安全な場所に保管してください。管理者・計測係のアクセスコードはバックアップに含めません。</p>
             <div class="backup-actions">
               <button class="primary-btn" id="exportBackupBtn" type="button">現在大会をJSONバックアップ</button>
@@ -567,6 +573,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=1.0"></script>
+  <script type="module" src="app.js?v=1.0.1"></script>
 </body>
 </html>
