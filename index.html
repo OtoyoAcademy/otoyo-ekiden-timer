@@ -7,7 +7,7 @@
   <title>駅伝大会運営システム | Ekiden</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=1.0.1" />
+  <link rel="stylesheet" href="styles.css?v=1.0.2" />
   <style>
     /* v0.15.1: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
@@ -251,7 +251,7 @@
           </article>
 
           <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0.1</span></div>
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0.2</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -335,7 +335,7 @@
           </article>
 
           <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0.1</span></div>
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0.2</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -477,7 +477,7 @@
           </article>
 
           <article class="panel wide backup-panel">
-            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0.1</span></div>
+            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0.2</span></div>
             <p class="hint">JSONバックアップには申込者の個人情報とチーム用アクセスコードが含まれます。学校・大会事務局の安全な場所に保管してください。管理者・計測係のアクセスコードはバックアップに含めません。</p>
             <div class="backup-actions">
               <button class="primary-btn" id="exportBackupBtn" type="button">現在大会をJSONバックアップ</button>
@@ -573,6 +573,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=1.0.1"></script>
+  <script type="module" src="app.js?v=1.0.2"></script>
 </body>
 </html>
