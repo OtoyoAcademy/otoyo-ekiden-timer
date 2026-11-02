@@ -7,7 +7,7 @@
   <title>駅伝大会運営システム | Ekiden</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="assets/icon-192.png" type="image/png" />
-  <link rel="stylesheet" href="styles.css?v=1.0.2" />
+  <link rel="stylesheet" href="styles.css?v=1.0.7" />
   <style>
     /* v0.15.1: 区間距離は設定カード内で3列を保証。外部CSSキャッシュ時の保険も兼ねる */
     .leg-distance-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
@@ -229,29 +229,39 @@
 
       <!-- ADMIN -->
       <section id="screen-admin" class="screen admin-screen">
+        <nav class="admin-category-tabs" id="adminCategoryTabs" aria-label="管理画面カテゴリ">
+          <button type="button" class="admin-category-tab active" data-admin-tab="overview">概要</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="settings">大会設定</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="entries">申込・参加者</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="results">結果・表彰</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="timing">計測管理</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="notices">お知らせ</button>
+          <button type="button" class="admin-category-tab" data-admin-tab="data">データ管理</button>
+        </nav>
+        <div class="admin-tab-caption" id="adminTabCaption">大会状況・同期状態・本番前チェック</div>
         <div class="dashboard-grid">
-          <article class="panel status-panel">
+          <article class="panel status-panel admin-tab-panel" data-admin-category="overview">
             <div class="panel-heading"><h2>大会状況</h2><span class="status-pill" id="raceStatusPill">開始前</span></div>
             <div class="stat-row"><div><small>チーム数</small><strong id="adminTeamCount">0</strong></div><div><small>区間</small><strong id="adminLegCount">15</strong></div><div><small>正式通過</small><strong id="adminPassCount">0</strong></div></div>
             <div class="action-row"><button class="primary-btn green" id="startRaceBtn">一斉スタート</button><button class="secondary-btn" id="finishRaceBtn">競技終了</button></div>
             <p class="hint" id="clockStatus">端末時刻を確認中...</p>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="overview">
             <div class="panel-heading"><h2>同期状態</h2><span class="mini-badge" id="connectionBadge">LOCAL</span></div>
             <p id="connectionDetail">ローカルモードです。</p>
             <div class="sync-line"><span>未送信データ</span><strong id="pendingCount">0</strong></div>
             <div class="sync-line"><span>時刻補正</span><strong id="serverOffsetLabel">0 ms</strong></div>
           </article>
 
-          <article class="panel wide production-panel">
+          <article class="panel wide production-panel admin-tab-panel" data-admin-category="overview">
             <div class="panel-heading"><h2>本番前チェック</h2><div class="action-row"><span class="production-score" id="productionScore">0/10</span><span class="mini-badge" id="productionBadge">要確認</span></div></div>
             <p class="hint">大会当日までに確認しておきたい項目です。未完了があっても計測はできますが、本番前にすべて✓にすることを推奨します。</p>
             <div id="productionChecklist" class="production-checklist"></div>
           </article>
 
-          <article class="panel wide event-manager-panel">
-            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0.6</span></div>
+          <article class="panel wide event-manager-panel admin-tab-panel" data-admin-category="settings">
+            <div class="panel-heading"><h2>年度別大会管理</h2><span class="mini-badge online">v1.0.7</span></div>
             <p class="hint">現在大会は1つだけ運用します。新しい大会を作成すると、現在大会は過去大会として自動保存されます。申込者・チーム・計測記録は新大会へ引き継ぎません。</p>
             <div id="currentEventSummary" class="current-event-summary"></div>
             <div class="new-event-box">
@@ -268,7 +278,7 @@
             <div id="eventArchiveDetail" class="event-archive-detail hidden"></div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="settings">
             <div class="panel-heading"><h2>アクセスコード設定</h2><span class="mini-badge">SECURITY</span></div>
             <p>空欄は変更しません。実運用前に初期コードから変更してください。</p>
             <div class="code-grid">
@@ -280,7 +290,7 @@
             <div class="action-row wrap"><button class="primary-btn" id="saveAccessCodesBtn">アクセスコードを更新</button><button class="secondary-btn" id="confirmCodesBtn" type="button">初期コード変更済みを確認</button></div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="settings">
             <div class="panel-heading"><h2>大会・申込設定</h2><span class="mini-badge">運営</span></div>
             <div class="form-grid two admin-form-grid">
               <label>大会名<input id="settingEventName" /></label>
@@ -312,7 +322,7 @@
             <button class="primary-btn" id="saveEventSettingsBtn">大会設定を保存</button>
           </article>
 
-          <article class="panel wide awards-admin-panel">
+          <article class="panel wide awards-admin-panel admin-tab-panel" data-admin-category="results">
             <div class="panel-heading"><h2>正式結果・表彰設定</h2><div class="action-row wrap"><span class="mini-badge" id="formalResultsBadge">非公開</span><span class="mini-badge" id="individualAwardsBadge">個人賞 非公開</span></div></div>
             <p class="hint">同じ選手が複数区間を走った場合は、その選手の最速ラップ1本だけを判定に使用します。また、全個人表彰を通して1人1回のみ受賞し、同じ人が別の賞でも上位になった場合は次の別の選手を繰り上げます。同タイムは同順位・同時受賞として扱います。</p>
             <div class="award-settings-grid">
@@ -334,8 +344,8 @@
             </div>
           </article>
 
-          <article class="panel wide certificate-admin-panel">
-            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0.6</span></div>
+          <article class="panel wide certificate-admin-panel admin-tab-panel" data-admin-category="results">
+            <div class="panel-heading"><h2>表彰状・記録証テンプレート</h2><span class="mini-badge online">v1.0.7</span></div>
             <p class="hint">標準テンプレートをそのまま使用できます。必要に応じてPNGをダウンロードし、Canva・PowerPoint等で編集してから背景画像としてアップロードしてください。完成した証書画像は保存せず、出力時に文字を重ねてPDF化します。</p>
             <div class="certificate-meta-grid">
               <label>主催名<input id="certificateOrganizerName" placeholder="例：大豊学園PTA" /></label>
@@ -385,7 +395,7 @@
             </div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>参加申込QR</h2><span class="mini-badge">広報</span></div>
             <p>申込ページへ直接開くQRコードです。PNG保存してCanva等の募集ポスターに利用できます。</p>
             <div class="qr-box"><div id="entryQrBox" aria-label="参加申込QRコード"></div></div>
@@ -393,7 +403,7 @@
             <div class="copy-url" id="entryUrlText"></div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>ファンラン受付QR</h2><span class="mini-badge">当日受付</span></div>
             <p>ファンラン参加受付ページへ直接開くQRコードです。</p>
             <div class="qr-box"><div id="funRunQrBox" aria-label="ファンラン受付QRコード"></div></div>
@@ -401,7 +411,7 @@
             <div class="copy-url" id="funRunUrlText"></div>
           </article>
 
-          <article class="panel wide funrun-admin-panel">
+          <article class="panel wide funrun-admin-panel admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>ファンラン参加者</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoFunRunBtn">ダミー参加者を追加</button><button class="text-btn" id="exportFunRunBtn">CSV出力</button><button class="primary-btn" id="printFunRunAttendedBtn">参加証を一括PDF・印刷</button><button class="secondary-btn" id="printFunRunMedalsBtn">メダルをA4・8枚印刷</button></div></div>
             <div class="application-stats" id="funRunStats"></div>
             <div class="funrun-quick-entry">
@@ -416,19 +426,19 @@
             <div id="funRunList" class="table-wrap"></div>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>申込一覧</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoApplicationsBtn">ダミー申込を追加</button><button class="text-btn" id="exportApplicationsBtn">申込CSV出力</button></div></div>
             <div class="application-stats" id="applicationStats"></div>
             <div id="applicationList" class="table-wrap"></div>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>登録チーム管理</h2><div class="action-row wrap"><button class="secondary-btn" id="printAllTeamsBtn">チーム案内一括PDF・印刷</button><span class="mini-badge">承認後</span></div></div>
             <p class="hint">申込を承認するとチーム番号と4桁のアクセスコードを自動発行します。各チームの案内はPDF保存または紙印刷できます。CSV登録チームもここに表示されます。</p>
             <div id="teamManagementList" class="table-wrap"></div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="entries">
             <div class="panel-heading"><h2>エントリーCSV</h2><span class="mini-badge">補助入力</span></div>
             <p>大量登録や既存名簿からの移行に使う補助機能です。通常は申込フォームからの承認登録を使用してください。</p>
             <div class="action-row wrap"><button class="secondary-btn" id="downloadCsvBtn">テンプレートCSV</button><label class="file-btn">CSVを読み込む<input type="file" id="csvInput" accept=".csv,text/csv" hidden /></label></div>
@@ -436,7 +446,7 @@
             <button class="primary-btn" id="commitCsvBtn" disabled>チームデータとして登録</button>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="notices">
             <div class="panel-heading"><h2>お知らせ掲示板</h2><span class="mini-badge live">LIVE</span></div>
             <p class="hint">参加者・閲覧者画面へリアルタイム反映されます。重要連絡は固定表示できます。</p>
             <div class="notice-admin-grid">
@@ -453,31 +463,31 @@
             <div id="noticeBoardAdmin" class="notice-board-admin"></div>
           </article>
 
-          <article class="panel">
+          <article class="panel admin-tab-panel" data-admin-category="timing">
             <div class="panel-heading"><h2>チーム計測コード</h2><span class="mini-badge">参考計測</span></div>
             <div id="teamCodeList" class="code-list"><div class="empty-state">チーム未登録</div></div>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="timing">
             <div class="panel-heading"><h2>正式通過記録</h2><button class="text-btn" id="exportResultsBtn">結果CSV出力</button></div>
             <p class="hint">3名計測＝中央値、2名計測＝平均、1名計測＝その値。計測人数と最大差も残します。</p>
             <div id="adminPassLog" class="table-wrap"></div>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="timing">
             <div class="panel-heading"><h2>運営側 生計測ログ</h2><span class="mini-badge">誤入力修正</span></div>
             <p class="hint">間違ったチーム番号を押した場合は、ここでチーム変更または削除できます。</p>
             <div id="rawOfficialLog" class="table-wrap"></div>
           </article>
 
-          <article class="panel wide">
+          <article class="panel wide admin-tab-panel" data-admin-category="timing">
             <div class="panel-heading"><h2>チーム参考計測</h2><span class="mini-badge">BACKUP</span></div>
             <p class="hint">正式記録に欠落がある場合のみ、管理者がチーム参考記録を正式記録へ採用できます。</p>
             <div id="teamBackupLog" class="table-wrap"></div>
           </article>
 
-          <article class="panel wide backup-panel">
-            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0.6</span></div>
+          <article class="panel wide backup-panel admin-tab-panel" data-admin-category="data">
+            <div class="panel-heading"><h2>バックアップ・データ出力</h2><span class="mini-badge">v1.0.7</span></div>
             <p class="hint">JSONバックアップには申込者の個人情報とチーム用アクセスコードが含まれます。学校・大会事務局の安全な場所に保管してください。管理者・計測係のアクセスコードはバックアップに含めません。</p>
             <div class="backup-actions">
               <button class="primary-btn" id="exportBackupBtn" type="button">現在大会をJSONバックアップ</button>
@@ -489,7 +499,7 @@
             </div>
           </article>
 
-          <article class="panel wide danger-zone">
+          <article class="panel wide danger-zone admin-tab-panel" data-admin-category="data">
             <div class="panel-heading"><h2>テスト・初期化</h2><span class="mini-badge">管理者専用</span></div>
             <p>テスト用の12チームを読み込むか、現在大会を初期化できます。本番運用では誤操作に注意してください。過去大会アーカイブは残ります。</p>
             <div class="action-row"><button class="secondary-btn" id="loadDemoBtn">デモ12チームを読込</button><button class="danger-btn" id="resetBtn">現在大会を初期化</button></div>
@@ -573,6 +583,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=1.0.6"></script>
+  <script type="module" src="app.js?v=1.0.7"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@ const LOCK_STALE_MS = 90000;
 const HEARTBEAT_MS = 20000;
 const DEFAULT_NOTICE = '開会式は、体育館で10時からとなっています。参加者は、5分前にはお集まりください。';
 const DEFAULT_CODES = { admin:'1234', A:'1111', B:'2222', C:'3333' };
-const APP_VERSION='1.0.6';
+const APP_VERSION='1.0.7';
 const TEAM_COLORS={
   1:'#FA927E',2:'#78C7FC',3:'#F8CC76',4:'#9EE6B4',5:'#C1A6F9',
   6:'#F6AAD2',7:'#88E2DB',8:'#F3B180',9:'#A5BDF3',10:'#D2E58A'
@@ -1293,3 +1293,11 @@ window.addEventListener('beforeunload',()=>{});
 
 renderElapsed();renderSyncStatus();initSupabase();
 const initialScreen=new URLSearchParams(location.search).get('screen');if(initialScreen==='entry')go('entry');else if(initialScreen==='funrun')go('funrun-entry');else renderTopStatus();
+
+
+// ---------- 管理画面カテゴリタブ (v1.0.7) ----------
+const ADMIN_TAB_KEY='ekiden_admin_category_v1';
+const ADMIN_TAB_CAPTIONS={overview:'大会状況・同期状態・本番前チェック',settings:'年度切替・アクセスコード・大会設定',entries:'申込受付・ファンラン・チーム登録・QR',results:'正式結果・表彰設定・表彰状・記録証',timing:'計測コード・正式通過・生計測ログ・参考計測',notices:'参加者向けのお知らせを作成・管理',data:'バックアップ・CSV出力・テスト・初期化'};
+function setAdminCategoryTab(tab,save=true){const valid=ADMIN_TAB_CAPTIONS[tab]?tab:'overview';document.querySelectorAll('.admin-category-tab').forEach(btn=>{const active=btn.dataset.adminTab===valid;btn.classList.toggle('active',active);btn.setAttribute('aria-selected',active?'true':'false');});document.querySelectorAll('.admin-tab-panel').forEach(panel=>panel.classList.toggle('admin-tab-visible',panel.dataset.adminCategory===valid));const caption=document.getElementById('adminTabCaption');if(caption)caption.textContent=ADMIN_TAB_CAPTIONS[valid];if(save){try{localStorage.setItem(ADMIN_TAB_KEY,valid);}catch(e){}}}
+function initAdminCategoryTabs(){const tabs=document.getElementById('adminCategoryTabs');if(!tabs)return;tabs.querySelectorAll('.admin-category-tab').forEach(btn=>btn.addEventListener('click',()=>setAdminCategoryTab(btn.dataset.adminTab)));let saved='overview';try{saved=localStorage.getItem(ADMIN_TAB_KEY)||'overview';}catch(e){}setAdminCategoryTab(saved,false);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initAdminCategoryTabs);else initAdminCategoryTabs();
