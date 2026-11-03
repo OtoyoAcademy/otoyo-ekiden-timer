@@ -8,7 +8,7 @@ const LOCK_STALE_MS = 90000;
 const HEARTBEAT_MS = 20000;
 const DEFAULT_NOTICE = '開会式は、体育館で10時からとなっています。参加者は、5分前にはお集まりください。';
 const DEFAULT_CODES = { admin:'1234', A:'1111', B:'2222', C:'3333' };
-const APP_VERSION='1.0.11';
+const APP_VERSION='1.0.13';
 const TEAM_COLORS={
   1:'#FA927E',2:'#78C7FC',3:'#F8CC76',4:'#9EE6B4',5:'#C1A6F9',
   6:'#F6AAD2',7:'#88E2DB',8:'#F3B180',9:'#A5BDF3',10:'#D2E58A'
@@ -713,11 +713,11 @@ async function printFunRunCertificates(onlyAttended=true){
 async function printOneFunRunCertificate(id){const r=state.funRunEntries?.[id];if(!r)return;await refreshCertificateAssetUrls();openCertificatePages([certificatePageHtml('funRunAward',r)],state.settings?.funRunCertificateTitle||'がんばったで賞');}
 
 function funRunMedalStyles(){return `
-@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef2f5;font-family:"Yu Gothic","Hiragino Sans",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:9px;background:#173d61;color:#fff;text-align:center}.toolbar button{border:0;border-radius:8px;padding:8px 18px;font-weight:800}.medal-sheet{width:210mm;height:297mm;background:#fff;margin:10px auto;padding:8mm 8mm 8mm;display:grid;grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr);column-gap:4mm;row-gap:3mm;page-break-after:always;box-shadow:0 5px 22px #0002}.medal-sheet:last-child{page-break-after:auto}.medal-cell{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;background:#fff}.medal-plate{position:relative;width:58mm;height:58mm;flex:0 0 auto}.medal-bg{display:block;width:100%;height:100%;object-fit:contain}.medal-name{position:absolute;left:17%;right:17%;top:72.5%;height:9.5%;display:flex;align-items:center;justify-content:center;font-size:4.1mm;font-weight:900;color:#184c80;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1}.medal-meta{margin-top:1mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;line-height:1.16;min-height:8.8mm}.medal-event{font-size:2.55mm;font-weight:800;color:#2f2f2f;white-space:nowrap;max-width:88mm;overflow:hidden;text-overflow:ellipsis}.medal-date{margin-top:.25mm;font-size:3.05mm;font-weight:900;color:#2f2f2f;white-space:nowrap}@media print{body{background:#fff}.toolbar{display:none}.medal-sheet{margin:0;box-shadow:none}}`}
+@page{size:A4 portrait;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#eef2f5;font-family:"Yu Gothic","Hiragino Sans",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{position:sticky;top:0;z-index:5;padding:9px;background:#173d61;color:#fff;text-align:center}.toolbar button{border:0;border-radius:8px;padding:8px 18px;font-weight:800}.medal-sheet{width:210mm;height:297mm;background:#fff;margin:10px auto;display:grid;grid-template-columns:64mm 64mm;grid-template-rows:repeat(4,64mm);justify-content:center;align-content:center;column-gap:14mm;row-gap:5mm;page-break-after:always;box-shadow:0 5px 22px #0002}.medal-sheet:last-child{page-break-after:auto}.medal-cell{width:64mm;height:64mm;position:relative;overflow:hidden;background:#fff}.medal-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}.medal-name,.medal-event,.medal-date{position:absolute;left:17%;right:17%;display:flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1;color:#173f65}.medal-name{top:74.1%;height:7.2%;font-size:4.15mm;font-weight:900}.medal-event{top:81.8%;height:4.8%;font-size:2.35mm;font-weight:800;color:#303030}.medal-date{top:87.0%;height:5.0%;font-size:2.55mm;font-weight:900;color:#303030}@media print{body{background:#fff}.toolbar{display:none}.medal-sheet{margin:0;box-shadow:none}}`}
 function funRunMedalHtml(row){
   const info=funRunAnimalInfo(row?.animal),eventName=state.settings?.eventName||'駅伝大会',date=certificateDateText();
   const hasName=!!String(row?.name||'').trim(),medalName=hasName?String(row.name).trim():'';
-  return `<div class="medal-cell"><div class="medal-plate"><img class="medal-bg" src="${esc(absoluteAppUrl(info.file))}" alt="${esc(info.label)}">${hasName?`<div class="medal-name">${esc(medalName)}</div>`:''}</div><div class="medal-meta"><div class="medal-event">${esc(eventName)}</div><div class="medal-date">${esc(date)}</div></div></div>`;
+  return `<div class="medal-cell"><img class="medal-bg" src="${esc(absoluteAppUrl(info.file))}" alt="${esc(info.label)}">${hasName?`<div class="medal-name">${esc(medalName)}</div>`:''}<div class="medal-event">${esc(eventName)}</div><div class="medal-date">${esc(date)}</div></div>`;
 }
 function openFunRunMedalSheets(rows,title='ファンランメダル'){
   const sourceRows=Array.isArray(rows)?rows:[];
@@ -726,7 +726,7 @@ function openFunRunMedalSheets(rows,title='ファンランメダル'){
   const pages=[];
   for(let i=0;i<printableRows.length;i+=8){
     const chunk=printableRows.slice(i,i+8),cells=[...chunk];
-    while(cells.length<8)cells.push({name:'',animal:chunk[0]?.animal||sourceRows[0]?.animal||'cheetah'});
+    while(cells.length<8)cells.push({name:'',animal:FUNRUN_ANIMAL_KEYS[cells.length%FUNRUN_ANIMAL_KEYS.length]});
     pages.push(`<section class="medal-sheet">${cells.map(r=>funRunMedalHtml(r)).join('')}</section>`);
   }
   w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${funRunMedalStyles()}</style></head><body><div class="toolbar"><button onclick="window.print()">A4・8枚でPDF／印刷</button>　${esc(title)}（${sourceRows.length}人）</div>${pages.join('')}</body></html>`);w.document.close();
