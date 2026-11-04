@@ -719,30 +719,26 @@ function funRunMedalStyles(){return `
 html,body{margin:0;padding:0;background:#eef2f5;font-family:"Yu Gothic","Hiragino Sans",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .toolbar{position:sticky;top:0;z-index:5;padding:9px;background:#173d61;color:#fff;text-align:center}
 .toolbar button{border:0;border-radius:8px;padding:8px 18px;font-weight:800}
-.medal-sheet{width:210mm;height:297mm;background:#fff;margin:10px auto;padding:7.5mm 0;display:flex;flex-direction:column;gap:2mm;page-break-after:always;box-shadow:0 5px 22px #0002;overflow:hidden}
+.medal-sheet{width:210mm;height:297mm;background:#fff;margin:10px auto;padding:10mm 0 8mm;display:flex;flex-direction:column;gap:2mm;page-break-after:always;box-shadow:0 5px 22px #0002;overflow:hidden}
 .medal-sheet:last-child{page-break-after:auto}
-.medal-row{width:210mm;height:69mm;display:grid;grid-template-columns:105mm 105mm;align-items:center}
-.medal-half{width:105mm;height:69mm;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.medal-front,.medal-back{position:relative;width:69mm;height:69mm;flex:0 0 auto}
-.medal-front img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.medal-row{width:210mm;height:68mm;display:grid;grid-template-columns:105mm 105mm;align-items:center}
+.medal-half{width:105mm;height:68mm;display:flex;align-items:center;justify-content:center;overflow:visible}
+.medal-front,.medal-back{position:relative;width:64mm;height:64mm;flex:0 0 auto}
+.medal-front{display:flex;align-items:center;justify-content:center}
+.medal-front img{display:block;width:100%;height:100%;object-fit:contain}
 .medal-front-cleanup{display:none}
-.medal-front.cleanup-blue .medal-front-cleanup,.medal-front.cleanup-yellow .medal-front-cleanup{display:block;position:absolute;left:13%;right:13%;bottom:8%;height:18%;border-radius:5mm;z-index:2}
-.medal-front.cleanup-blue .medal-front-cleanup{background:linear-gradient(180deg,#dff8fc 0%,#c9eef6 100%)}
-.medal-front.cleanup-yellow .medal-front-cleanup{background:linear-gradient(180deg,#fff9cf 0%,#fff1ac 100%)}
-.medal-back{clip-path:polygon(15% 0,85% 0,100% 15%,100% 85%,85% 100%,15% 100%,0 85%,0 15%);background:var(--medal-accent);display:flex;align-items:center;justify-content:center}
-.medal-back-inner{width:calc(100% - 2.2mm);height:calc(100% - 2.2mm);clip-path:inherit;background:linear-gradient(160deg,#fffdf6 0%,var(--medal-soft) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8mm 7mm;text-align:center;color:#173f65}
-.medal-back-name{width:100%;font-size:6.0mm;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4.5mm}
+.medal-back{clip-path:polygon(16% 0,84% 0,100% 16%,100% 84%,84% 100%,16% 100%,0 84%,0 16%);background:var(--medal-accent);display:flex;align-items:center;justify-content:center}
+.medal-back-inner{width:calc(100% - 2.6mm);height:calc(100% - 2.6mm);clip-path:inherit;background:linear-gradient(160deg,#fffdf6 0%,var(--medal-soft) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7.5mm 6mm;text-align:center;color:#173f65}
+.medal-back-name{width:100%;font-size:5.8mm;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4.5mm}
 .medal-back-name.blank{height:8mm;border-bottom:.45mm solid var(--medal-accent);color:transparent}
-.medal-back-event{width:100%;font-size:3.0mm;font-weight:800;line-height:1.25;color:#303030;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2mm}
-.medal-back-date{font-size:3.7mm;font-weight:900;line-height:1.1;color:#303030;white-space:nowrap}
+.medal-back-date{font-size:3.9mm;font-weight:900;line-height:1.1;color:#303030;white-space:nowrap}
 .medal-fold-guide{position:fixed;top:2mm;left:50%;transform:translateX(-50%);font-size:2.5mm;color:#aab3ba;letter-spacing:.12em}
 @media print{body{background:#fff}.toolbar{display:none}.medal-sheet{margin:0;box-shadow:none}.medal-fold-guide{display:none}}
 `}
 function funRunMedalPairHtml(row){
-  const key=funRunAnimalKey(row?.animal),info=funRunAnimalInfo(key),eventName=String(state.settings?.eventName||'駅伝大会').trim(),date=certificateDateText();
+  const key=funRunAnimalKey(row?.animal),info=funRunAnimalInfo(key),date=certificateDateText();
   const medalName=String(row?.name||'').trim();
-  const cleanupClass=key==='dolphin'?' cleanup-blue':key==='zebra'?' cleanup-yellow':'';
-  return `<div class="medal-row"><div class="medal-half"><div class="medal-front${cleanupClass}"><img src="${esc(absoluteAppUrl(info.file))}" alt="${esc(info.label)}"><div class="medal-front-cleanup"></div></div></div><div class="medal-half"><div class="medal-back" style="--medal-accent:${esc(info.accent||'#1A9AD6')};--medal-soft:${esc(info.footerBg||'#F6F7F8')}"><div class="medal-back-inner"><div class="medal-back-name${medalName?'':' blank'}">${medalName?esc(medalName):'なまえ'}</div><div class="medal-back-event">${esc(eventName)}</div><div class="medal-back-date">${esc(date)}</div></div></div></div></div>`;
+  return `<div class="medal-row"><div class="medal-half"><div class="medal-front"><img src="${esc(absoluteAppUrl(info.file))}" alt="${esc(info.label)}"></div></div><div class="medal-half"><div class="medal-back" style="--medal-accent:${esc(info.accent||'#1A9AD6')};--medal-soft:${esc(info.footerBg||'#F6F7F8')}"><div class="medal-back-inner"><div class="medal-back-name${medalName?'':' blank'}">${medalName?esc(medalName):'なまえ'}</div><div class="medal-back-date">${esc(date)}</div></div></div></div></div>`;
 }
 function openFunRunMedalSheets(rows,title='ファンランメダル'){
   const sourceRows=Array.isArray(rows)?rows:[];
