@@ -117,7 +117,7 @@
               <div class="fieldset-head"><legend id="entryLegLegend">15区間の走者</legend><span>同じ方が複数区間を走っても構いません。</span></div>
               <div class="runner-entry-table-wrap">
                 <table class="runner-entry-table">
-                  <thead><tr><th>区間</th><th>氏名</th><th>性別</th><th>区分</th><th>年齢</th></tr></thead>
+                  <thead><tr><th>区間</th><th>氏名</th><th>性別</th><th>区分</th></tr></thead>
                   <tbody id="entryRunnerRows"></tbody>
                 </table>
               </div>
@@ -159,7 +159,6 @@
               <legend>参加者</legend>
               <div class="form-grid two">
                 <label>参加者氏名 <span class="req">必須</span><input id="funRunName" required maxlength="60" placeholder="例：大豊 はな" /></label>
-                <label>年齢 <span class="req">必須</span><input id="funRunAge" required type="number" min="0" max="100" inputmode="numeric" placeholder="例：5" /></label>
                 <label>区分<select id="funRunCategory"><option>未就学</option><option>小学生</option><option>中学生</option><option>高校生</option><option>一般</option></select></label>
                 <label>保護者・付き添い氏名<input id="funRunGuardian" maxlength="60" placeholder="任意" /></label>
                 <label>連絡先電話番号<input id="funRunPhone" inputmode="tel" placeholder="任意" /></label>
@@ -418,12 +417,11 @@
             <div class="funrun-quick-entry">
               <strong>当日受付を追加</strong>
               <input id="adminFunRunName" placeholder="参加者氏名" />
-              <input id="adminFunRunAge" type="number" min="0" max="100" inputmode="numeric" placeholder="年齢" />
               <select id="adminFunRunCategory"><option>未就学</option><option>小学生</option><option>中学生</option><option>高校生</option><option>一般</option></select>
               <select id="adminFunRunAnimal"><option value="cheetah">チーター</option><option value="kangaroo">カンガルー</option><option value="mouse">ネズミ</option><option value="panda">パンダ</option><option value="bear">クマ</option><option value="penguin">ペンギン</option><option value="dolphin">イルカ</option><option value="zebra">シマウマ</option></select>
               <button class="secondary-btn" id="adminAddFunRunBtn" type="button">当日受付を追加</button>
             </div>
-            <p class="hint">ファンランは承認不要です。「参加済み」にすると、参加証とメダルの一括出力対象になります。メダルの一括印刷は「結果・表彰」タブから行えます。A4縦に8枚（2列×4段）で配置します。</p>
+            <p class="hint">ファンランは承認不要です。「参加済み」にすると、参加証とメダルの一括出力対象になります。メダルの一括印刷は「結果・表彰」タブから行えます。A4縦に表裏4組で配置します。中央で折って貼り合わせます。</p>
             <div id="funRunList" class="table-wrap"></div>
           </article>
 

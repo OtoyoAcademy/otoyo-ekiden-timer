@@ -8,7 +8,7 @@ const LOCK_STALE_MS = 90000;
 const HEARTBEAT_MS = 20000;
 const DEFAULT_NOTICE = '開会式は、体育館で10時からとなっています。参加者は、5分前にはお集まりください。';
 const DEFAULT_CODES = { admin:'1234', A:'1111', B:'2222', C:'3333' };
-const APP_VERSION='1.0.15';
+const APP_VERSION='1.0.23';
 const TEAM_COLORS={
   1:'#FA927E',2:'#78C7FC',3:'#F8CC76',4:'#9EE6B4',5:'#C1A6F9',
   6:'#F6AAD2',7:'#88E2DB',8:'#F3B180',9:'#A5BDF3',10:'#D2E58A'
@@ -18,12 +18,12 @@ function teamColorMark(no,extra=''){return `<span class="team-color-mark ${extra
 
 const FUNRUN_ANIMALS={
   cheetah:{label:'チーター',file:'assets/medals/cheetah.png',footerBg:'#FAE3AD',accent:'#F0A000'},
-  kangaroo:{label:'カンガルー',file:'assets/medals/kangaroo.png',footerBg:'#BDE6FA',accent:'#069FE2'},
+  kangaroo:{label:'カンガルー',file:'assets/medals/kangaroo.png',footerBg:'#FFF1B8',accent:'#F0A000'},
   mouse:{label:'ネズミ',file:'assets/medals/mouse.png',footerBg:'#F9C4CD',accent:'#F02B59'},
   panda:{label:'パンダ',file:'assets/medals/panda.png',footerBg:'#CEECB8',accent:'#2AA617'},
   bear:{label:'クマ',file:'assets/medals/bear.png',footerBg:'#F0CDAD',accent:'#EA7D2E'},
   penguin:{label:'ペンギン',file:'assets/medals/penguin.png',footerBg:'#D5C1F2',accent:'#7D43DD'},
-  dolphin:{label:'イルカ',file:'assets/medals/dolphin.png',footerBg:'#B2E3E7',accent:'#16AEBB'},
+  dolphin:{label:'イルカ',file:'assets/medals/dolphin.png',footerBg:'#D7F3FF',accent:'#1598E3'},
   zebra:{label:'シマウマ',file:'assets/medals/zebra.png',footerBg:'#F1E1B4',accent:'#D7AA23'}
 };
 const FUNRUN_ANIMAL_KEYS=Object.keys(FUNRUN_ANIMALS);
@@ -224,14 +224,14 @@ function archiveDetailHtml(a){
   const awardHtml=awards.length?`<div class="archive-awards">${awards.map(g=>`<div><strong>${esc(g.label)}</strong>${(g.winners||[]).map(w=>`<span>${esc(w.name)}（${esc(w.teamName)}・第${w.leg}区間） ${fmtClock(w.lap)}</span>`).join('')}</div>`).join('')}</div>`:'<div class="empty-state">個人賞データはありません。</div>';
   const recHtml=records.length?`<table class="data-table"><thead><tr><th>選手</th><th>チーム</th><th>区間</th><th>距離</th><th>記録</th></tr></thead><tbody>${records.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.teamName)}</td><td>第${r.leg}区間</td><td>${r.distanceKm?esc(formatDistanceKm(r.distanceKm)):'—'}</td><td>${fmtClock(r.lap)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">個人記録はありません。</div>';
   const funRows=Object.values(a.funRunEntries||{}).filter(Boolean).sort((x,y)=>(x.submittedAt||0)-(y.submittedAt||0));
-  const funHtml=funRows.length?`<table class="data-table"><thead><tr><th>参加者</th><th>年齢</th><th>区分</th><th>状態</th></tr></thead><tbody>${funRows.map(r=>`<tr><td>${esc(r.name||'')}</td><td>${r.age!=null?esc(r.age)+'歳':'—'}</td><td>${esc(r.category||'')}</td><td>${r.attended?'参加済み':'受付済み'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">ファンラン参加者はいません。</div>';
+  const funHtml=funRows.length?`<table class="data-table"><thead><tr><th>参加者</th><th>区分</th><th>状態</th></tr></thead><tbody>${funRows.map(r=>`<tr><td>${esc(r.name||'')}</td><td>${esc(r.category||'')}</td><td>${r.attended?'参加済み':'受付済み'}</td></tr>`).join('')}</tbody></table>`:'<div class="empty-state">ファンラン参加者はいません。</div>';
   return `<div class="archive-detail-head"><div><small>READ ONLY</small><h3>${esc(a.year||'')}年度 ${esc(a.name||'')}</h3><p>${esc(formatArchiveDate(a.settings?.eventDate))}　${esc(a.settings?.venue||'')}</p></div><button class="secondary-btn" data-close-archive>閉じる</button></div><div class="archive-detail-stats"><span>駅伝申込 <b>${Number(a.counts?.applications||Object.keys(a.applications||{}).length)}</b></span><span>ファンラン <b>${Number(a.counts?.funRunEntries||Object.keys(a.funRunEntries||{}).length)}</b></span><span>チーム <b>${Number(a.counts?.teams||Object.keys(a.teams||{}).length)}</b></span><span>区間 <b>${Number(a.settings?.legCount||15)}</b></span><span>通過記録 <b>${Number(a.counts?.passes||0)}</b></span></div><div class="archive-detail-grid"><section><h4>チーム正式順位</h4>${teamHtml}</section><section><h4>個人賞</h4>${awardHtml}</section><section class="span-two"><h4>個人記録</h4>${recHtml}</section><section class="span-two"><h4>ファンラン参加者</h4>${funHtml}</section></div><p class="hint">過去大会は閲覧専用です。申込・チーム・計測データを現在大会へ戻すことはしません。</p>`;
 }
 function exportArchivedResults(id){
   const a=state.eventArchives?.[id];if(!a)return;const rows=[['record_type','rank_or_category','team_no','team_name','runner_name','leg','distance_km','time']];
   (a.resultSummary?.teamResults||[]).forEach(r=>rows.push(['team',r.rank,r.teamNo,r.teamName,'','','',fmtClock(r.total)]));
   (a.resultSummary?.personalRecords||[]).forEach(r=>rows.push(['runner','',r.teamNo,r.teamName,r.name,r.leg,r.distanceKm||'',fmtClock(r.lap)]));
-  Object.values(a.funRunEntries||{}).filter(Boolean).forEach(r=>rows.push(['funrun',r.attended?'attended':'registered','','',r.name||'','','',r.age!=null?`${r.age}歳 ${r.category||''}`:'']));
+  Object.values(a.funRunEntries||{}).filter(Boolean).forEach(r=>rows.push(['funrun',r.attended?'attended':'registered','','',r.name||'','','',r.category||'']));
   downloadText('\uFEFF'+rows.map(r=>r.map(csvEscape).join(',')).join('\r\n'),`ekiden_${a.year||'archive'}_results.csv`,'text/csv;charset=utf-8');
 }
 async function createNewAnnualEvent(){
@@ -685,7 +685,7 @@ function openCertificatePages(pages,title='証書プレビュー'){
   if(!pages.length){toast('出力できるデータがありません');return;}const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${certificatePrintStyles()}</style></head><body><div class="toolbar"><button onclick="window.print()">PDF・印刷</button>　${esc(title)}（${pages.length}枚）</div>${pages.join('')}</body></html>`);w.document.close();
 }
 function sampleCertificateData(kind){
-  if(kind==='funRunAward')return {name:'おおとよ はな',age:5,category:'未就学'};
+  if(kind==='funRunAward')return {name:'おおとよ はな',category:'未就学'};
   if(kind==='teamAward')return {rank:1,teamName:'サンプルチーム',total:'01:12:34.56'};
   if(kind==='individualAward')return {category:'中学生・男子 最速',name:'大豊 太郎',teamName:'サンプルチーム',legLabel:legLabel(1),lap:'00:08:24.00'};
   return {name:'大豊 花子',teamName:'サンプルチーム',legLabel:legLabel(1),distance:legDistanceLabel(1)||'2.5km',lap:'00:09:12.00',legRank:'3位'};
@@ -834,14 +834,13 @@ function initEntryRows(){
   const previous=[...body.querySelectorAll('tr')].map(row=>({
     name:row.querySelector('[data-runner-name]')?.value||'',
     sex:row.querySelector('[data-runner-sex]')?.value||'男',
-    ageGroup:normalizeAgeGroup(row.querySelector('[data-runner-group]')?.value||'未就学',row.querySelector('[data-runner-age]')?.value),
-    age:row.querySelector('[data-runner-age]')?.value||''
+    ageGroup:normalizeAgeGroup(row.querySelector('[data-runner-group]')?.value||'未就学',null)
   }));
   const sexOpts=['男','女','回答しない'].map(v=>`<option>${v}</option>`).join('');
   const ageOpts=AGE_GROUPS.map(v=>`<option>${v}</option>`).join('');
-  body.innerHTML=Array.from({length:count},(_,i)=>`<tr data-entry-leg="${i+1}"><td data-label="区間" class="runner-leg"><span class="runner-leg-label">${esc(legLabel(i+1))}</span><span class="runner-leg-number">${i+1}</span></td><td data-label="氏名"><input data-runner-name maxlength="60" placeholder="走者氏名" /></td><td data-label="性別"><select data-runner-sex>${sexOpts}</select></td><td data-label="区分"><select data-runner-group>${ageOpts}</select></td><td data-label="年齢"><input data-runner-age inputmode="numeric" type="number" min="1" max="100" placeholder="任意" /></td></tr>`).join('');
+  body.innerHTML=Array.from({length:count},(_,i)=>`<tr data-entry-leg="${i+1}"><td data-label="区間" class="runner-leg"><span class="runner-leg-label">${esc(legLabel(i+1))}</span><span class="runner-leg-number">${i+1}</span></td><td data-label="氏名"><input data-runner-name maxlength="60" placeholder="走者氏名" /></td><td data-label="性別"><select data-runner-sex>${sexOpts}</select></td><td data-label="区分"><select data-runner-group>${ageOpts}</select></td></tr>`).join('');
   body.dataset.legCount=String(count);
-  [...body.querySelectorAll('tr')].forEach((row,i)=>{const p=previous[i];if(!p)return;row.querySelector('[data-runner-name]').value=p.name;row.querySelector('[data-runner-sex]').value=p.sex;row.querySelector('[data-runner-group]').value=normalizeAgeGroup(p.ageGroup,p.age);row.querySelector('[data-runner-age]').value=p.age;});
+  [...body.querySelectorAll('tr')].forEach((row,i)=>{const p=previous[i];if(!p)return;row.querySelector('[data-runner-name]').value=p.name;row.querySelector('[data-runner-sex]').value=p.sex;row.querySelector('[data-runner-group]').value=normalizeAgeGroup(p.ageGroup,null);});
 }
 function renderEntry(){
   initEntryRows();
@@ -871,7 +870,6 @@ function fillDemoEntry(){
     row.querySelector('[data-runner-name]').value=`${names[who]} ${i===7?'光':'選手'+(who+1)}`;
     row.querySelector('[data-runner-sex]').value=i%2?'女':'男';
     row.querySelector('[data-runner-group]').value=['小学生','中学生','一般（～29歳）','一般（30歳～）'][i%4];
-    row.querySelector('[data-runner-age]').value=[10,14,28,45][i%4];
   });
   document.getElementById('entryNotes').value='開発用ダミーデータです。';
   document.getElementById('entryAgree').checked=true;
@@ -881,7 +879,7 @@ function copyPrevRunner(){
   for(let i=1;i<rows.length;i++){
     const cur=rows[i].querySelector('[data-runner-name]'),prev=rows[i-1].querySelector('[data-runner-name]');
     if(!cur.value.trim()&&prev.value.trim()){
-      ['name','sex','group','age'].forEach(k=>{const a=rows[i].querySelector(`[data-runner-${k}]`),b=rows[i-1].querySelector(`[data-runner-${k}]`);if(a&&b)a.value=b.value;});
+      ['name','sex','group'].forEach(k=>{const a=rows[i].querySelector(`[data-runner-${k}]`),b=rows[i-1].querySelector(`[data-runner-${k}]`);if(a&&b)a.value=b.value;});
       toast(`第${i+1}区間へ直前の走者をコピーしました`);return;
     }
   }
@@ -907,7 +905,7 @@ document.getElementById('entryForm').addEventListener('submit',e=>{
     address:document.getElementById('entryAddress').value.trim(),contactPref:document.getElementById('entryContactPref').value,studentName:document.getElementById('entryStudentName').value.trim()
   };
   const err=validateContact(contact.contactPref,contact);if(err){toast(err);return;}
-  const runners=entryRows().map((row,i)=>({leg:i+1,name:row.querySelector('[data-runner-name]').value.trim(),sex:row.querySelector('[data-runner-sex]').value,ageGroup:row.querySelector('[data-runner-group]').value,age:Number(row.querySelector('[data-runner-age]').value)||null}));
+  const runners=entryRows().map((row,i)=>({leg:i+1,name:row.querySelector('[data-runner-name]').value.trim(),sex:row.querySelector('[data-runner-sex]').value,ageGroup:row.querySelector('[data-runner-group]').value}));
   const missing=runners.find(r=>!r.name);if(missing){toast(`第${missing.leg}区間の走者名を入力してください`);return;}
   const at=syncedNow(),id=makeId('app');
   const app={id,eventId:currentEventId(),receiptNo:receiptNumber(id,at),teamName:document.getElementById('entryTeamName').value.trim(),contact,runners,notes:document.getElementById('entryNotes').value.trim(),status:'pending',submittedBy:supabaseMode?(supabaseUserId||''):'local',submittedAt:at,updatedAt:at};
@@ -938,11 +936,11 @@ function renderFunRunEntry(){
 }
 document.getElementById('funRunEntryForm')?.addEventListener('submit',e=>{
   e.preventDefault();if(!funRunIsOpen()){toast('現在、ファンランの受付は停止しています');return;}
-  const name=document.getElementById('funRunName').value.trim(),age=Number(document.getElementById('funRunAge').value),category=document.getElementById('funRunCategory').value,animal=document.getElementById('funRunAnimal')?.value||'';
-  if(!name||!Number.isFinite(age)||age<0){toast('参加者氏名と年齢を確認してください');return;}
+  const name=document.getElementById('funRunName').value.trim(),category=document.getElementById('funRunCategory').value,animal=document.getElementById('funRunAnimal')?.value||'';
+  if(!name){toast('参加者氏名を確認してください');return;}
   if(!FUNRUN_ANIMALS[animal]){toast('メダルのどうぶつを選んでください');return;}
   const at=syncedNow(),id=makeId('funrun');
-  const row={id,eventId:currentEventId(),receiptNo:funRunReceiptNumber(id,at),name,age,category,animal,guardian:document.getElementById('funRunGuardian').value.trim(),phone:document.getElementById('funRunPhone').value.trim(),notes:document.getElementById('funRunNotes').value.trim(),attended:false,source:'web',submittedBy:supabaseMode?(supabaseUserId||''):'local',submittedAt:at,updatedAt:at};
+  const row={id,eventId:currentEventId(),receiptNo:funRunReceiptNumber(id,at),name,category,animal,guardian:document.getElementById('funRunGuardian').value.trim(),phone:document.getElementById('funRunPhone').value.trim(),notes:document.getElementById('funRunNotes').value.trim(),attended:false,source:'web',submittedBy:supabaseMode?(supabaseUserId||''):'local',submittedAt:at,updatedAt:at};
   document.getElementById('funRunSubmitBtn').disabled=true;queueWrite(`funRunEntries/${id}`,row);
   document.getElementById('funRunReceiptNo').textContent=row.receiptNo;document.getElementById('funRunCompleteText').textContent=`${name}さんの${state.settings?.funRunTitle||'ファンラン'}参加を受け付けました。`;
   e.target.reset();document.getElementById('funRunCategory').value='未就学';document.getElementById('funRunAnimal').value='';renderFunRunAnimalChoices();go('funrun-complete');
@@ -956,22 +954,22 @@ function renderFunRunQr(){
 document.getElementById('refreshFunRunQrBtn')?.addEventListener('click',()=>{renderFunRunQr();toast('ファンラン受付QRを更新しました');});
 document.getElementById('downloadFunRunQrBtn')?.addEventListener('click',()=>{renderFunRunQr();setTimeout(()=>{const box=document.getElementById('funRunQrBox'),c=box?.querySelector('canvas'),img=box?.querySelector('img'),a=document.createElement('a');a.download='funrun_entry_qr.png';a.href=c?c.toDataURL('image/png'):img?.src||'';if(a.href)a.click();else toast('QR画像を保存できませんでした');},50);});
 
-function makeFunRunEntry(name,age,category='未就学',source='admin',animal='cheetah'){
-  const at=syncedNow(),id=makeId('funrun');return {id,eventId:currentEventId(),receiptNo:funRunReceiptNumber(id,at),name:String(name||'').trim(),age:Number(age),category:category||'未就学',animal:funRunAnimalKey(animal),guardian:'',phone:'',notes:'',attended:source==='admin',source,submittedBy:source==='admin'?'admin':(supabaseUserId||''),submittedAt:at,updatedAt:at};
+function makeFunRunEntry(name,category='未就学',source='admin',animal='cheetah'){
+  const at=syncedNow(),id=makeId('funrun');return {id,eventId:currentEventId(),receiptNo:funRunReceiptNumber(id,at),name:String(name||'').trim(),category:category||'未就学',animal:funRunAnimalKey(animal),guardian:'',phone:'',notes:'',attended:source==='admin',source,submittedBy:source==='admin'?'admin':(supabaseUserId||''),submittedAt:at,updatedAt:at};
 }
 function renderFunRunAdmin(){
   const rows=funRunEntryList(),attended=rows.filter(r=>r.attended).length,stats=document.getElementById('funRunStats'),list=document.getElementById('funRunList');
   if(stats)stats.innerHTML=`<div class="application-stat"><strong>${rows.length}</strong><small>受付総数</small></div><div class="application-stat"><strong>${attended}</strong><small>参加済み</small></div><div class="application-stat"><strong>${rows.length-attended}</strong><small>未参加確認</small></div>`;
   if(!list)return;if(!rows.length){list.innerHTML='<div class="empty-state">ファンラン参加者はまだいません。当日受付またはダミー参加者で確認できます。</div>';return;}
-  list.innerHTML=`<table class="data-table"><thead><tr><th>受付</th><th>参加者</th><th>区分・メダル</th><th>連絡・備考</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(r=>{const animal=funRunAnimalInfo(r.animal);return `<tr><td>${esc(r.receiptNo||'')}<br><small>${r.submittedAt?new Date(r.submittedAt).toLocaleString('ja-JP'):''}</small></td><td><strong>${esc(r.name||'')}</strong><br><small>${Number.isFinite(Number(r.age))?`${Number(r.age)}歳`:''}</small></td><td>${esc(r.category||'')}<br><small>メダル：${esc(animal.label)}</small></td><td>${esc(r.guardian||'')}${r.guardian&&r.phone?'<br>':''}${esc(r.phone||'')}<div class="app-detail">${esc(r.notes||'')}</div></td><td><span class="status-chip ${r.attended?'approved':'pending'}">${r.attended?'参加済み':'受付済み'}</span></td><td><button class="tiny-btn ${r.attended?'':'green'}" data-toggle-funrun="${esc(r.id)}">${r.attended?'参加取消':'参加済みにする'}</button> <button class="tiny-btn" data-print-funrun="${esc(r.id)}">参加証</button> <button class="tiny-btn" data-print-medal="${esc(r.id)}">メダル</button> <button class="tiny-btn red" data-delete-funrun="${esc(r.id)}">削除</button></td></tr>`;}).join('')}</tbody></table>`;
+  list.innerHTML=`<table class="data-table"><thead><tr><th>受付</th><th>参加者</th><th>区分・メダル</th><th>連絡・備考</th><th>状態</th><th>操作</th></tr></thead><tbody>${rows.map(r=>{const animal=funRunAnimalInfo(r.animal);return `<tr><td>${esc(r.receiptNo||'')}<br><small>${r.submittedAt?new Date(r.submittedAt).toLocaleString('ja-JP'):''}</small></td><td><strong>${esc(r.name||'')}</strong></td><td>${esc(r.category||'')}<br><small>メダル：${esc(animal.label)}</small></td><td>${esc(r.guardian||'')}${r.guardian&&r.phone?'<br>':''}${esc(r.phone||'')}<div class="app-detail">${esc(r.notes||'')}</div></td><td><span class="status-chip ${r.attended?'approved':'pending'}">${r.attended?'参加済み':'受付済み'}</span></td><td><button class="tiny-btn ${r.attended?'':'green'}" data-toggle-funrun="${esc(r.id)}">${r.attended?'参加取消':'参加済みにする'}</button> <button class="tiny-btn" data-print-funrun="${esc(r.id)}">参加証</button> <button class="tiny-btn" data-print-medal="${esc(r.id)}">メダル</button> <button class="tiny-btn red" data-delete-funrun="${esc(r.id)}">削除</button></td></tr>`;}).join('')}</tbody></table>`;
   list.querySelectorAll('[data-toggle-funrun]').forEach(b=>b.addEventListener('click',()=>{const r=state.funRunEntries?.[b.dataset.toggleFunrun];if(!r)return;queueWrite(`funRunEntries/${r.id}`,{...r,attended:!r.attended,attendedAt:!r.attended?syncedNow():null,updatedAt:syncedNow()});toast(!r.attended?'参加済みにしました':'参加済みを取り消しました');}));
   list.querySelectorAll('[data-print-funrun]').forEach(b=>b.addEventListener('click',()=>printOneFunRunCertificate(b.dataset.printFunrun)));
   list.querySelectorAll('[data-print-medal]').forEach(b=>b.addEventListener('click',()=>printOneFunRunMedal(b.dataset.printMedal)));
   list.querySelectorAll('[data-delete-funrun]').forEach(b=>b.addEventListener('click',()=>{const r=state.funRunEntries?.[b.dataset.deleteFunrun];if(r&&confirm(`${r.name}さんのファンラン受付を削除しますか？`)){queueWrite(`funRunEntries/${r.id}`,null,true);toast('ファンラン受付を削除しました');}}));
 }
-document.getElementById('adminAddFunRunBtn')?.addEventListener('click',()=>{const name=document.getElementById('adminFunRunName').value.trim(),age=Number(document.getElementById('adminFunRunAge').value),category=document.getElementById('adminFunRunCategory').value,animal=document.getElementById('adminFunRunAnimal')?.value||'cheetah';if(!name||!Number.isFinite(age)||age<0){toast('氏名と年齢を入力してください');return;}const row=makeFunRunEntry(name,age,category,'admin',animal);queueWrite(`funRunEntries/${row.id}`,row);document.getElementById('adminFunRunName').value='';document.getElementById('adminFunRunAge').value='';toast('当日受付を追加し、参加済みにしました');});
-document.getElementById('loadDemoFunRunBtn')?.addEventListener('click',()=>{const merged={...(state.funRunEntries||{})};[['大豊 はな',5,'未就学','mouse'],['大杉 そら',6,'未就学','kangaroo'],['豊永 りく',4,'未就学','panda'],['清流 ゆい',7,'小学生','dolphin']].forEach((x,i)=>{const r=makeFunRunEntry(x[0],x[1],x[2],'admin',x[3]);r.attended=i<3;merged[r.id]=r;});queueWrite('funRunEntries',merged);toast('ダミー参加者を4名追加しました');});
-document.getElementById('exportFunRunBtn')?.addEventListener('click',()=>{const out=[['receipt_no','name','age','category','medal_animal','guardian','phone','notes','attended','submitted_at']];funRunEntryList().forEach(r=>out.push([r.receiptNo||'',r.name||'',r.age??'',r.category||'',funRunAnimalInfo(r.animal).label,r.guardian||'',r.phone||'',r.notes||'',r.attended?'yes':'no',r.submittedAt?new Date(r.submittedAt).toISOString():'']));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'funrun_participants_v1_0_6.csv','text/csv;charset=utf-8');});
+document.getElementById('adminAddFunRunBtn')?.addEventListener('click',()=>{const name=document.getElementById('adminFunRunName').value.trim(),category=document.getElementById('adminFunRunCategory').value,animal=document.getElementById('adminFunRunAnimal')?.value||'cheetah';if(!name){toast('氏名を入力してください');return;}const row=makeFunRunEntry(name,category,'admin',animal);queueWrite(`funRunEntries/${row.id}`,row);document.getElementById('adminFunRunName').value='';toast('当日受付を追加し、参加済みにしました');});
+document.getElementById('loadDemoFunRunBtn')?.addEventListener('click',()=>{const merged={...(state.funRunEntries||{})};[['大豊 はな','未就学','mouse'],['大杉 そら','未就学','kangaroo'],['豊永 りく','未就学','panda'],['清流 ゆい','小学生','dolphin']].forEach((x,i)=>{const r=makeFunRunEntry(x[0],x[1],'admin',x[2]);r.attended=i<3;merged[r.id]=r;});queueWrite('funRunEntries',merged);toast('ダミー参加者を4名追加しました');});
+document.getElementById('exportFunRunBtn')?.addEventListener('click',()=>{const out=[['receipt_no','name','category','medal_animal','guardian','phone','notes','attended','submitted_at']];funRunEntryList().forEach(r=>out.push([r.receiptNo||'',r.name||'',r.category||'',funRunAnimalInfo(r.animal).label,r.guardian||'',r.phone||'',r.notes||'',r.attended?'yes':'no',r.submittedAt?new Date(r.submittedAt).toISOString():'']));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'funrun_participants_v1_0_6.csv','text/csv;charset=utf-8');});
 document.getElementById('printFunRunAttendedBtn')?.addEventListener('click',()=>printFunRunCertificates(true));
 document.getElementById('printFunRunMedalsBtn')?.addEventListener('click',()=>printFunRunMedals(true));
 
@@ -1029,7 +1027,7 @@ function renderApplications(){
   const el=document.getElementById('applicationList');if(!apps.length){el.innerHTML='<div class="empty-state">申込はまだありません。ダミー申込を追加して画面確認できます。</div>';return;}
   el.innerHTML=`<table class="data-table"><thead><tr><th>受付</th><th>チーム</th><th>代表者・連絡</th><th>選手</th><th>状態</th><th>発行情報</th><th>操作</th></tr></thead><tbody>${apps.map(a=>{
     const c=a.contact||{},status=a.status||'pending',chip=status==='approved'?'approved':status==='returned'?'returned':'pending',statusText=status==='approved'?'承認済':status==='returned'?'差戻し':'未確認';
-    const detail=(a.runners||[]).map(r=>`${legLabel(r.leg)} ${r.name}（${r.sex}/${normalizeAgeGroup(r.ageGroup,r.age)}${r.age?'/'+r.age+'歳':''}）`).join('、');
+    const detail=(a.runners||[]).map(r=>`${legLabel(r.leg)} ${r.name}（${r.sex}/${normalizeAgeGroup(r.ageGroup,r.age)}）`).join('、');
     const issued=status==='approved'?`チーム${esc(a.issuedTeamNo||'')} / <span class="team-code-inline">${esc(a.issuedAccessCode||'')}</span>`:'—';
     const actions=status==='pending'?`<button class="tiny-btn green" data-approve-app="${esc(a.id)}">承認</button> <button class="tiny-btn" data-return-app="${esc(a.id)}">差戻し</button>`:status==='returned'?`<button class="tiny-btn" data-reopen-app="${esc(a.id)}">未確認へ戻す</button>`:`<button class="tiny-btn" data-show-team="${esc(a.issuedTeamNo||'')}">チーム確認</button>`;
     return `<tr><td>${esc(a.receiptNo||'')}<br><small>${a.submittedAt?new Date(a.submittedAt).toLocaleString('ja-JP'):''}</small></td><td><strong>${esc(a.teamName||'')}</strong><div class="app-detail">${esc(a.notes||'')}</div></td><td>${esc(c.repName||'')}<div class="app-detail">${esc(c.phone||'')} / ${esc(c.email||'')}<br>希望：${esc(contactPrefLabel(c.contactPref))}${c.studentName?`<br>${esc(c.studentName)}`:''}</div></td><td><details><summary>${getLegCount()}区間を確認</summary><div class="app-detail">${esc(detail)}</div></details></td><td><span class="status-chip ${chip}">${statusText}</span></td><td>${issued}</td><td>${actions} <button class="tiny-btn red" data-delete-app="${esc(a.id)}">削除</button></td></tr>`;
@@ -1108,7 +1106,7 @@ async function deleteTeam(no){const t=getTeam(no);if(!t)return;if(teamProgress(n
 
 function makeDummyApplication(seed){
   const groups=['小学生','中学生','一般（～29歳）','一般（30歳～）'];const surnames=['山田','佐藤','高橋','小川','西村','森','岡本','藤田'];const submittedAt=syncedNow()-seed*60000,id=makeId(`dummy${seed}`),pref=['email','phone','fax','postal','student'][seed%5];
-  return {id,receiptNo:receiptNumber(id,submittedAt),teamName:['大豊ファミリー','杉の子ランナーズ','吉野川スマイル','おおとよフレンズ','山びこチーム','れいほくスターズ'][seed%6]+seed,contact:{repName:`代表 ${surnames[seed%surnames.length]}`,repType:seed%2?'保護者':'大豊学園児童・生徒',phone:'090-0000-'+String(1000+seed),email:pref==='email'?`dummy${seed}@example.com`:'',fax:pref==='fax'?'0887-00-0000':'',address:pref==='postal'?'高知県長岡郡大豊町（ダミー）':'',contactPref:pref,studentName:pref==='student'?'大豊学園 児童生徒（ダミー）':''},runners:Array.from({length:getLegCount()},(_,i)=>{const same=(i===8?2:i);return {leg:i+1,name:`${surnames[(same+seed)%surnames.length]} 選手${(same%7)+1}`,sex:(i+seed)%2?'女':'男',ageGroup:groups[(i+seed)%groups.length],age:[10,14,29,45][(i+seed)%4]};}),notes:'開発用ダミー申込',status:'pending',submittedAt,updatedAt:submittedAt};
+  return {id,receiptNo:receiptNumber(id,submittedAt),teamName:['大豊ファミリー','杉の子ランナーズ','吉野川スマイル','おおとよフレンズ','山びこチーム','れいほくスターズ'][seed%6]+seed,contact:{repName:`代表 ${surnames[seed%surnames.length]}`,repType:seed%2?'保護者':'大豊学園児童・生徒',phone:'090-0000-'+String(1000+seed),email:pref==='email'?`dummy${seed}@example.com`:'',fax:pref==='fax'?'0887-00-0000':'',address:pref==='postal'?'高知県長岡郡大豊町（ダミー）':'',contactPref:pref,studentName:pref==='student'?'大豊学園 児童生徒（ダミー）':''},runners:Array.from({length:getLegCount()},(_,i)=>{const same=(i===8?2:i);return {leg:i+1,name:`${surnames[(same+seed)%surnames.length]} 選手${(same%7)+1}`,sex:(i+seed)%2?'女':'男',ageGroup:groups[(i+seed)%groups.length]};}),notes:'開発用ダミー申込',status:'pending',submittedAt,updatedAt:submittedAt};
 }
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
 document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
@@ -1149,7 +1147,7 @@ function exportBackupJson(){
   const date=new Date().toISOString().slice(0,10).replaceAll('-','');downloadText(JSON.stringify(payload,null,2),`ekiden_backup_${date}.json`,'application/json;charset=utf-8');toast('現在大会のバックアップを保存しました');
 }
 function exportTeamsCsv(){
-  const out=[['team_no','team_name','runner_leg','runner_name','sex','age_group','age','distance_km']];teamList().forEach(t=>(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).sort((a,b)=>a.leg-b.leg).forEach(r=>out.push([t.teamNo,t.teamName,r.leg,r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),r.age??'',getLegDistance(r.leg)??''])));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_teams_v1.csv','text/csv;charset=utf-8');
+  const out=[['team_no','team_name','runner_leg','runner_name','sex','age_group','distance_km']];teamList().forEach(t=>(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).sort((a,b)=>a.leg-b.leg).forEach(r=>out.push([t.teamNo,t.teamName,r.leg,r.name||'',r.sex||'',normalizeAgeGroup(r.ageGroup,r.age),getLegDistance(r.leg)??''])));downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_teams_v1.csv','text/csv;charset=utf-8');
 }
 async function restoreBackupFile(file){
   if(!file)return;let payload;try{payload=JSON.parse(await file.text());}catch{toast('JSONファイルを読み込めませんでした');return;}
