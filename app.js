@@ -721,13 +721,13 @@ html,body{margin:0;padding:0;background:#eef2f5;font-family:"Yu Gothic","Hiragin
 .toolbar button{border:0;border-radius:8px;padding:8px 18px;font-weight:800}
 .medal-sheet{width:210mm;height:297mm;background:#fff;margin:10px auto;padding:12mm 0 10mm;display:flex;flex-direction:column;gap:3mm;page-break-after:always;box-shadow:0 5px 22px #0002;overflow:hidden}
 .medal-sheet:last-child{page-break-after:auto}
-.medal-row{width:210mm;height:65mm;display:grid;grid-template-columns:105mm 105mm;align-items:center}
-.medal-half{width:105mm;height:65mm;display:flex;align-items:center;justify-content:center;overflow:visible}
-.medal-front,.medal-back{position:relative;width:65mm;height:65mm;flex:0 0 auto}
+.medal-row{width:210mm;height:66mm;display:grid;grid-template-columns:105mm 105mm;align-items:center}
+.medal-half{width:105mm;height:66mm;display:flex;align-items:center;justify-content:center;overflow:visible}
+.medal-front,.medal-back{position:relative;width:64mm;height:64mm;flex:0 0 auto}
 .medal-front{display:flex;align-items:center;justify-content:center}
-.medal-front img{display:block;width:65mm;height:65mm;object-fit:contain}
+.medal-front img{display:block;width:64mm;height:64mm;object-fit:contain}
 .medal-front-cleanup{display:none}
-.medal-back{clip-path:polygon(21.5% 0,78.5% 0,100% 21.5%,100% 78.5%,78.5% 100%,21.5% 100%,0 78.5%,0 21.5%);background:var(--medal-accent);display:flex;align-items:center;justify-content:center}
+.medal-back{clip-path:polygon(28% 0,72% 0,100% 28%,100% 72%,72% 100%,28% 100%,0 72%,0 28%);background:var(--medal-accent);display:flex;align-items:center;justify-content:center}
 .medal-back-inner{width:calc(100% - 2.2mm);height:calc(100% - 2.2mm);clip-path:inherit;background:linear-gradient(160deg,#fffdf6 0%,var(--medal-soft) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7mm 5.5mm;text-align:center;color:#173f65}
 .medal-back-name{width:100%;font-size:5.6mm;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3.2mm}
 .medal-back-name.blank{height:7.5mm;border-bottom:.4mm solid var(--medal-accent);color:transparent}
