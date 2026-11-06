@@ -45,7 +45,7 @@
           <div id="topImportantNotices" class="top-important-list"></div>
         </section>
 
-        <div class="entry-cta-wrap">
+        <div class="entry-cta-wrap" id="entryTopWrap">
           <button class="entry-cta" id="entryTopButton" data-go="entry">
             <span class="entry-cta-icon" id="entryTopIcon">📝</span>
             <span><strong id="entryTopTitle">駅伝 参加申込</strong><small id="entryTopStatus">申込フォームはこちら</small></span>
@@ -269,7 +269,7 @@
                 <label>新しい大会名<input id="newEventName" placeholder="例：大豊学園駅伝大会" /></label>
                 <label>設定のコピー元<select id="newEventCopySource"><option value="current">現在大会の設定をコピー</option><option value="none">設定をコピーしない</option></select></label>
               </div>
-              <div class="new-event-copy-note">コピーするもの：会場・区間数・区間距離・表彰設定・証書テンプレート・ハンコ設定・ファンラン設定・事務局設定。<br>コピーしないもの：開催日・申込締切・受付状態・駅伝申込者・ファンラン参加者・チーム・計測記録・結果。</div>
+              <div class="new-event-copy-note">コピーするもの：会場・区間数・区間距離・表彰設定・証書テンプレート・ハンコ設定・駅伝申込機能設定・ファンラン設定・事務局設定。<br>コピーしないもの：開催日・申込締切・受付状態・駅伝申込者・ファンラン参加者・チーム・計測記録・結果。</div>
               <button class="primary-btn" id="createNewEventBtn" type="button">新しい大会を作成</button>
             </div>
             <div class="event-archive-heading"><h3>過去大会</h3><span>閲覧専用</span></div>
@@ -308,6 +308,7 @@
               <div id="legDistanceInputs" class="leg-distance-grid"></div>
               <div id="legDistanceSummary" class="distance-summary">0区間設定済み</div>
             </div>
+            <label class="toggle-line"><input type="checkbox" id="settingEkidenEntryEnabled" /> 駅伝の申し込み機能を使用する</label>
             <label class="toggle-line"><input type="checkbox" id="settingEntryOpen" /> 駅伝の参加申込を受け付ける</label>
             <div class="funrun-setting-box">
               <h3>ファンラン設定</h3>
@@ -368,6 +369,12 @@
                 <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="teamAward" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="teamAward" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="teamAward" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="teamAward" type="button">プレビュー</button></div>
               </div>
               <div class="certificate-template-card">
+                <div class="certificate-template-head"><h3>チーム記録賞</h3><span>完走チーム全員</span></div>
+                <img id="teamRecordAwardTemplatePreview" alt="チーム記録賞テンプレート" />
+                <div class="template-status" id="teamRecordAwardTemplateStatus">標準テンプレート</div>
+                <div class="action-row wrap"><button class="secondary-btn" data-download-cert-template="teamRecordAward" type="button">標準PNGをダウンロード</button><label class="file-btn">編集版をアップロード<input type="file" data-upload-cert-template="teamRecordAward" accept="image/png,image/jpeg,image/webp" hidden /></label><button class="text-btn" data-reset-cert-template="teamRecordAward" type="button">標準に戻す</button><button class="tiny-btn green" data-preview-cert="teamRecordAward" type="button">プレビュー</button></div>
+              </div>
+              <div class="certificate-template-card">
                 <div class="certificate-template-head"><h3>個人賞表彰状</h3><span>最速・年代別等</span></div>
                 <img id="individualAwardTemplatePreview" alt="個人賞表彰状テンプレート" />
                 <div class="template-status" id="individualAwardTemplateStatus">標準テンプレート</div>
@@ -388,14 +395,15 @@
             </div>
             <div class="certificate-output-actions">
               <button class="primary-btn" id="printAwardCertificatesBtn" type="button">表彰状を一括PDF・印刷</button>
-              <button class="secondary-btn" id="printRecordCertificatesBtn" type="button">記録証を一括PDF・印刷</button>
+              <button class="secondary-btn" id="printTeamRecordCertificatesBtn" type="button">チーム記録賞を一括PDF・印刷</button>
+              <button class="secondary-btn" id="printRecordCertificatesBtn" type="button">個人記録証を一括PDF・印刷</button>
               <button class="secondary-btn" id="printFunRunCertificatesBtn" type="button">ファンラン参加証を一括PDF・印刷</button>
               <button class="secondary-btn" id="printFunRunMedalsBtn" type="button">ファンランメダルをA4・8枚印刷</button>
               <span class="hint">ブラウザの印刷画面から「PDFに保存」を選べます。</span>
             </div>
           </article>
 
-          <article class="panel admin-tab-panel" data-admin-category="entries">
+          <article class="panel admin-tab-panel" data-admin-category="entries" id="entryQrPanel">
             <div class="panel-heading"><h2>参加申込QR</h2><span class="mini-badge">広報</span></div>
             <p>申込ページへ直接開くQRコードです。PNG保存してCanva等の募集ポスターに利用できます。</p>
             <div class="qr-box"><div id="entryQrBox" aria-label="参加申込QRコード"></div></div>
@@ -506,6 +514,34 @@
         </div>
       </section>
 
+
+      <!-- TEAM / APPLICATION DETAIL EDITOR -->
+      <section id="screen-team-detail" class="screen team-detail-screen">
+        <div class="panel team-detail-panel">
+          <div class="team-detail-toolbar">
+            <button class="secondary-btn" id="teamDetailBackBtn" type="button">← 申込・参加者へ戻る</button>
+            <div><small id="teamDetailStatusLabel">申込内容</small><h2 id="teamDetailHeading">チーム詳細・編集</h2></div>
+            <button class="primary-btn" id="saveTeamDetailBtn" type="button">変更を保存</button>
+          </div>
+          <div class="team-detail-meta" id="teamDetailMeta"></div>
+          <div class="team-detail-form-grid">
+            <label>チーム名<input id="teamDetailTeamName" maxlength="60" /></label>
+            <label>代表者<input id="teamDetailRepName" maxlength="60" /></label>
+            <label>電話番号<input id="teamDetailPhone" inputmode="tel" /></label>
+            <label>メール<input id="teamDetailEmail" type="email" /></label>
+          </div>
+          <label class="team-detail-notes">備考<textarea id="teamDetailNotes" rows="3"></textarea></label>
+          <div class="team-detail-runner-head"><div><h3>区間・走者</h3><p>区間ごとの走者を確認し、氏名・性別・区分を直接修正できます。</p></div><span id="teamDetailRunnerCount" class="mini-badge"></span></div>
+          <div class="team-detail-runner-wrap">
+            <table class="team-detail-runner-table">
+              <thead><tr><th>区間</th><th>距離</th><th>氏名</th><th>性別</th><th>区分</th></tr></thead>
+              <tbody id="teamDetailRunnerRows"></tbody>
+            </table>
+          </div>
+          <div class="team-detail-bottom-actions"><button class="secondary-btn" id="teamDetailBackBtnBottom" type="button">戻る</button><button class="primary-btn" id="saveTeamDetailBtnBottom" type="button">変更を保存</button></div>
+        </div>
+      </section>
+
       <!-- OFFICIAL TIMER -->
       <section id="screen-timer" class="screen timer-screen">
         <div class="timer-header-card">
@@ -582,6 +618,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="app.js?v=1.0.20"></script>
+  <script type="module" src="app.js?v=1.0.24"></script>
 </body>
 </html>
