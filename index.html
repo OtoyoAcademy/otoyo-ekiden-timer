@@ -434,7 +434,8 @@
           </article>
 
           <article class="panel wide admin-tab-panel" data-admin-category="entries">
-            <div class="panel-heading"><h2>申込一覧</h2><div class="action-row wrap"><button class="secondary-btn" id="loadDemoApplicationsBtn">ダミー申込を追加</button><button class="text-btn" id="exportApplicationsBtn">申込CSV出力</button></div></div>
+            <div class="panel-heading"><h2>申込一覧</h2><div class="action-row wrap"><button class="secondary-btn" id="addManualApplicationBtn">外部申込を手動登録</button><button class="secondary-btn" id="loadDemoApplicationsBtn">ダミー申込を追加</button><button class="text-btn" id="exportApplicationsBtn">申込一覧をCSV保存</button></div></div>
+            <p class="hint">紙・別フォーム・電話などで受け付けた申込も登録できます。外部申込は、代表者・連絡先・走者が未確定でも空欄のまま仮登録し、後から「詳細・編集」で追記できます。</p>
             <div class="application-stats" id="applicationStats"></div>
             <div id="applicationList" class="table-wrap"></div>
           </article>
@@ -501,7 +502,7 @@
               <label class="file-btn restore-btn">JSONから復元<input type="file" id="restoreBackupInput" accept="application/json,.json" hidden /></label>
               <button class="secondary-btn" id="exportTeamsCsvBtn" type="button">チーム・走者CSV</button>
               <button class="secondary-btn" id="exportResultsBtnMirror" type="button" onclick="document.getElementById('exportResultsBtn').click()">計測結果CSV</button>
-              <button class="secondary-btn" id="exportApplicationsBtnMirror" type="button" onclick="document.getElementById('exportApplicationsBtn').click()">申込CSV</button>
+              <button class="secondary-btn" id="exportApplicationsBtnMirror" type="button" onclick="document.getElementById('exportApplicationsBtn').click()">申込一覧CSV</button>
               <button class="secondary-btn" id="exportFunRunBtnMirror" type="button" onclick="document.getElementById('exportFunRunBtn').click()">ファンランCSV</button>
             </div>
           </article>
@@ -524,6 +525,7 @@
             <button class="primary-btn" id="saveTeamDetailBtn" type="button">変更を保存</button>
           </div>
           <div class="team-detail-meta" id="teamDetailMeta"></div>
+          <p class="hint">外部申込・事務局登録では空欄のまま保存できます。情報が確定した時点で追記してください。</p>
           <div class="team-detail-form-grid">
             <label>チーム名<input id="teamDetailTeamName" maxlength="60" /></label>
             <label>代表者<input id="teamDetailRepName" maxlength="60" /></label>

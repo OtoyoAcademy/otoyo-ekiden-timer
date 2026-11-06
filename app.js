@@ -1041,7 +1041,7 @@ function renderApplications(){
     const issued=status==='approved'?`チーム${esc(a.issuedTeamNo||'')} / <span class="team-code-inline">${esc(a.issuedAccessCode||'')}</span>`:'—';
     const detailBtn=`<button class="tiny-btn blue" data-edit-application="${esc(a.id)}">詳細・編集</button>`;
     const actions=status==='pending'?`${detailBtn} <button class="tiny-btn green" data-approve-app="${esc(a.id)}">承認</button> <button class="tiny-btn" data-return-app="${esc(a.id)}">差戻し</button>`:status==='returned'?`${detailBtn} <button class="tiny-btn" data-reopen-app="${esc(a.id)}">未確認へ戻す</button>`:detailBtn;
-    return `<tr><td>${esc(a.receiptNo||'')}<br><small>${a.submittedAt?new Date(a.submittedAt).toLocaleString('ja-JP'):''}</small></td><td><strong>${esc(a.teamName||'')}</strong><div class="app-detail">${esc(a.notes||'')}</div></td><td>${esc(c.repName||'')}<div class="app-detail">${esc(c.phone||'')} / ${esc(c.email||'')}<br>希望：${esc(contactPrefLabel(c.contactPref))}${c.studentName?`<br>${esc(c.studentName)}`:''}</div></td><td><strong>${runnerCount}/${getLegCount()}区間</strong><div class="app-detail">詳細画面で確認・修正</div></td><td><span class="status-chip ${chip}">${statusText}</span></td><td>${issued}</td><td>${actions} <button class="tiny-btn red" data-delete-app="${esc(a.id)}">削除</button></td></tr>`;
+    return `<tr><td>${esc(a.receiptNo||'')}<br><small>${a.submittedAt?new Date(a.submittedAt).toLocaleString('ja-JP'):''}${a.source==='admin-manual'?'<br>外部申込':''}</small></td><td><strong>${esc(a.teamName||'（未入力）')}</strong><div class="app-detail">${esc(a.notes||'')}</div></td><td>${esc(c.repName||'')}<div class="app-detail">${esc(c.phone||'')} / ${esc(c.email||'')}<br>希望：${esc(contactPrefLabel(c.contactPref))}${c.studentName?`<br>${esc(c.studentName)}`:''}</div></td><td><strong>${runnerCount}/${getLegCount()}区間</strong><div class="app-detail">詳細画面で確認・修正</div></td><td><span class="status-chip ${chip}">${statusText}</span></td><td>${issued}</td><td>${actions} <button class="tiny-btn red" data-delete-app="${esc(a.id)}">削除</button></td></tr>`;
   }).join('')}</tbody></table>`;
   el.querySelectorAll('[data-approve-app]').forEach(b=>b.addEventListener('click',()=>approveApplication(b.dataset.approveApp)));
   el.querySelectorAll('[data-return-app]').forEach(b=>b.addEventListener('click',()=>setApplicationStatus(b.dataset.returnApp,'returned')));
@@ -1051,8 +1051,15 @@ function renderApplications(){
 }
 function nextTeamNumber(){const used=new Set(teamList().map(t=>String(t.teamNo)));let n=1;while(used.has(String(n)))n++;return String(n);}
 async function approveApplication(id){
-  const a=state.applications?.[id];if(!a||a.status==='approved')return;if(!confirm(`「${a.teamName}」を承認し、チーム番号とアクセスコードを発行しますか？`))return;
-  const no=nextTeamNumber(),code=randomNumericCode(),team={teamNo:no,teamName:a.teamName,runners:(a.runners||[]).map(r=>({...r,leg:Number(r.leg)})),sourceApplicationId:id};
+  const a=state.applications?.[id];if(!a||a.status==='approved')return;
+  const filled=(a.runners||[]).filter(r=>String(r?.name||'').trim()).length;
+  const displayName=String(a.teamName||'').trim()||'（チーム名未設定）';
+  const incomplete=filled<getLegCount()||!String(a.teamName||'').trim();
+  const msg=incomplete?`「${displayName}」は未入力項目があります（走者 ${filled}/${getLegCount()}区間）。
+このまま仮承認してチーム番号とアクセスコードを発行しますか？
+後から詳細・編集で追記できます。`:`「${displayName}」を承認し、チーム番号とアクセスコードを発行しますか？`;
+  if(!confirm(msg))return;
+  const no=nextTeamNumber(),code=randomNumericCode(),team={teamNo:no,teamName:displayName,runners:(a.runners||[]).map(r=>({...r,leg:Number(r.leg)})),sourceApplicationId:id};
   if(!supabaseMode){team.accessCode=code;team.representative={name:a.contact?.repName||'',phone:a.contact?.phone||'',email:a.contact?.email||'',contactPref:a.contact?.contactPref||''};}
   if(supabaseMode&&!(await setTeamSecret(no,code)))return;queueWrite(`teams/${teamKey(no)}`,team);queueWrite(`applications/${id}`,{...a,status:'approved',issuedTeamNo:no,issuedAccessCode:code,approvedAt:syncedNow(),updatedAt:syncedNow()});toast(`チーム${no}として承認しました`);
 }
@@ -1083,27 +1090,27 @@ function renderTeamDetail(){
   const {app,team,runners}=teamDetailData();if(!app&&!team){document.getElementById('teamDetailHeading').textContent='チームが見つかりません';return;}
   const c=app?.contact||{},teamName=team?.teamName||app?.teamName||'',status=app?.status||'登録チーム';
   document.getElementById('teamDetailHeading').textContent=teamName||'チーム詳細・編集';
-  document.getElementById('teamDetailStatusLabel').textContent=team?`登録チーム No.${team.teamNo}`:`申込 ${app?.receiptNo||''}`;
+  document.getElementById('teamDetailStatusLabel').textContent=team?`登録チーム No.${team.teamNo}`:app?.source==='admin-manual'?`外部申込 ${app?.receiptNo||''}`:`申込 ${app?.receiptNo||''}`;
   document.getElementById('teamDetailMeta').innerHTML=`<span>状態 <b>${esc(status==='approved'?'承認済':status==='returned'?'差戻し':status==='pending'?'未確認':'登録済')}</b></span>${team?`<span>チーム番号 <b>${esc(team.teamNo)}</b></span>`:''}${app?.submittedAt?`<span>受付 <b>${esc(new Date(app.submittedAt).toLocaleString('ja-JP'))}</b></span>`:''}`;
   document.getElementById('teamDetailTeamName').value=teamName;
   document.getElementById('teamDetailRepName').value=c.repName||team?.representative?.name||'';
   document.getElementById('teamDetailPhone').value=c.phone||team?.representative?.phone||'';
   document.getElementById('teamDetailEmail').value=c.email||team?.representative?.email||'';
   document.getElementById('teamDetailNotes').value=app?.notes||'';
-  const byLeg=new Map(runners.map(r=>[Number(r.leg),r])),sexOptions=['男','女','回答しない'],groupOptions=AGE_GROUPS;
+  const byLeg=new Map(runners.map(r=>[Number(r.leg),r])),sexOptions=['','男','女','回答しない'],groupOptions=['',...AGE_GROUPS];
   const body=document.getElementById('teamDetailRunnerRows');
-  body.innerHTML=Array.from({length:getLegCount()},(_,i)=>{const leg=i+1,r=byLeg.get(leg)||{};return `<tr data-team-detail-leg="${leg}"><td><b>${esc(legLabel(leg))}</b></td><td>${esc(legDistanceLabel(leg)||'未設定')}</td><td><input data-detail-runner-name maxlength="60" value="${esc(r.name||'')}" placeholder="走者氏名" /></td><td><select data-detail-runner-sex>${sexOptions.map(v=>`<option ${v===(r.sex||'男')?'selected':''}>${esc(v)}</option>`).join('')}</select></td><td><select data-detail-runner-group>${groupOptions.map(v=>`<option ${v===normalizeAgeGroup(r.ageGroup,null)?'selected':''}>${esc(v)}</option>`).join('')}</select></td></tr>`;}).join('');
+  body.innerHTML=Array.from({length:getLegCount()},(_,i)=>{const leg=i+1,r=byLeg.get(leg)||{};return `<tr data-team-detail-leg="${leg}"><td><b>${esc(legLabel(leg))}</b></td><td>${esc(legDistanceLabel(leg)||'未設定')}</td><td><input data-detail-runner-name maxlength="60" value="${esc(r.name||'')}" placeholder="走者氏名" /></td><td><select data-detail-runner-sex>${sexOptions.map(v=>`<option value="${esc(v)}" ${v===(r.sex||'')?'selected':''}>${esc(v||'未設定')}</option>`).join('')}</select></td><td><select data-detail-runner-group>${groupOptions.map(v=>`<option value="${esc(v)}" ${v===(r.ageGroup||'')?'selected':''}>${esc(v||'未設定')}</option>`).join('')}</select></td></tr>`;}).join('');
   document.getElementById('teamDetailRunnerCount').textContent=`${runners.filter(r=>r.name).length}/${getLegCount()}区間`;
 }
 function saveTeamDetail(){
   const {app,team}=teamDetailData();if(!app&&!team)return;
-  const teamName=document.getElementById('teamDetailTeamName').value.trim();if(!teamName){toast('チーム名を入力してください');return;}
+  const teamName=document.getElementById('teamDetailTeamName').value.trim();
   const rows=[...document.querySelectorAll('#teamDetailRunnerRows tr')];
   const runners=rows.map(row=>({leg:Number(row.dataset.teamDetailLeg),name:row.querySelector('[data-detail-runner-name]').value.trim(),sex:row.querySelector('[data-detail-runner-sex]').value,ageGroup:row.querySelector('[data-detail-runner-group]').value}));
-  const missing=runners.find(r=>!r.name);if(missing){toast(`${legLabel(missing.leg)}の走者名を入力してください`);return;}
   if(app){const contact={...(app.contact||{}),repName:document.getElementById('teamDetailRepName').value.trim(),phone:document.getElementById('teamDetailPhone').value.trim(),email:document.getElementById('teamDetailEmail').value.trim()};queueWrite(`applications/${app.id}`,{...app,teamName,contact,runners,notes:document.getElementById('teamDetailNotes').value.trim(),updatedAt:syncedNow()});}
-  if(team){queueWrite(`teams/${teamKey(team.teamNo)}`,{...team,teamName,runners});}
-  toast('チーム情報を更新しました');renderTeamDetail();
+  if(team){queueWrite(`teams/${teamKey(team.teamNo)}`,{...team,teamName:teamName||team.teamName||'（チーム名未設定）',runners});}
+  const filled=runners.filter(r=>r.name).length;
+  toast(`チーム情報を保存しました（走者 ${filled}/${getLegCount()}区間）`);renderTeamDetail();
 }
 function backFromTeamDetail(){try{localStorage.setItem('ekiden_admin_category_v1','entries');}catch(e){}go('admin');setAdminCategoryTab('entries',false);}
 
@@ -1154,6 +1161,13 @@ function renameTeam(no){const t=getTeam(no);if(!t)return;const name=prompt('新�
 async function regenerateTeamCode(no){const t=getTeam(no);if(!t||!confirm(`${t.teamName}のチーム用アクセスコードを再発行しますか？`))return;const code=randomNumericCode();if(supabaseMode){if(!(await setTeamSecret(no,code)))return;}else queueWrite(`teams/${teamKey(no)}`,{...t,accessCode:code});if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,issuedAccessCode:code,updatedAt:syncedNow()});}toast(`新しいコード：${code}`);renderCurrent();}
 async function deleteTeam(no){const t=getTeam(no);if(!t)return;if(teamProgress(no)>0){toast('計測記録があるチームは削除できません');return;}if(!confirm(`チーム${no}「${t.teamName}」を削除しますか？`))return;if(supabaseMode)await deleteTeamSecret(no);queueWrite(`teams/${teamKey(no)}`,null,true);if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,status:'pending',issuedTeamNo:null,issuedAccessCode:null,approvedAt:null,updatedAt:syncedNow()});}toast('チームを削除しました');}
 
+function addManualApplication(){
+  const at=syncedNow(),id=makeId('manual');
+  const app={id,eventId:currentEventId(),receiptNo:receiptNumber(id,at),teamName:'',contact:{repName:'',repType:'',phone:'',email:'',fax:'',address:'',contactPref:'',studentName:''},runners:Array.from({length:getLegCount()},(_,i)=>({leg:i+1,name:'',sex:'',ageGroup:''})),notes:'外部申込・事務局登録',status:'pending',source:'admin-manual',submittedBy:'admin',submittedAt:at,updatedAt:at};
+  queueWrite(`applications/${id}`,app);teamEditContext={applicationId:id,teamNo:null};go('team-detail');toast('外部申込の仮登録を作成しました');
+}
+document.getElementById('addManualApplicationBtn')?.addEventListener('click',addManualApplication);
+
 function makeDummyApplication(seed){
   const groups=['小学生','中学生','一般（～29歳）','一般（30歳～）'];const surnames=['山田','佐藤','高橋','小川','西村','森','岡本','藤田'];const submittedAt=syncedNow()-seed*60000,id=makeId(`dummy${seed}`),pref=['email','phone','fax','postal','student'][seed%5];
   return {id,receiptNo:receiptNumber(id,submittedAt),teamName:['大豊ファミリー','杉の子ランナーズ','吉野川スマイル','おおとよフレンズ','山びこチーム','れいほくスターズ'][seed%6]+seed,contact:{repName:`代表 ${surnames[seed%surnames.length]}`,repType:seed%2?'保護者':'大豊学園児童・生徒',phone:'090-0000-'+String(1000+seed),email:pref==='email'?`dummy${seed}@example.com`:'',fax:pref==='fax'?'0887-00-0000':'',address:pref==='postal'?'高知県長岡郡大豊町（ダミー）':'',contactPref:pref,studentName:pref==='student'?'大豊学園 児童生徒（ダミー）':''},runners:Array.from({length:getLegCount()},(_,i)=>{const same=(i===8?2:i);return {leg:i+1,name:`${surnames[(same+seed)%surnames.length]} 選手${(same%7)+1}`,sex:(i+seed)%2?'女':'男',ageGroup:groups[(i+seed)%groups.length]};}),notes:'開発用ダミー申込',status:'pending',submittedAt,updatedAt:submittedAt};
@@ -1161,7 +1175,7 @@ function makeDummyApplication(seed){
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
 document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
 document.getElementById('exportApplicationsBtn').addEventListener('click',()=>{
-  const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_applications_v1.csv','text/csv;charset=utf-8');
+  const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_application_list.csv','text/csv;charset=utf-8');
 });
 
 // ---------- v1.0 production readiness / backup ----------
