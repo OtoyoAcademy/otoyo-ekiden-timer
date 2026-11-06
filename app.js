@@ -1068,10 +1068,11 @@ function deleteApplication(id){const a=state.applications?.[id];if(!a)return;if(
 
 function renderTeamManagement(){
   const teams=teamList(),el=document.getElementById('teamManagementList');if(!teams.length){el.innerHTML='<div class="empty-state">登録チームはありません。</div>';return;}
-  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${teamColorMark(t.teamNo,'large')}${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).length}/${getLegCount()}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn blue" data-edit-team="${esc(t.teamNo)}">詳細・編集</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">PDF・印刷</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
+  el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${teamColorMark(t.teamNo,'large')}${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).length}/${getLegCount()}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn blue" data-edit-team="${esc(t.teamNo)}">詳細・編集</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">参加案内</button> <button class="tiny-btn purple" data-print-app-notice="${esc(t.teamNo)}">アプリ登録案内</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
   el.querySelectorAll('[data-edit-team]').forEach(b=>b.addEventListener('click',()=>openRegisteredTeamDetail(b.dataset.editTeam)));
   el.querySelectorAll('[data-regenerate-code]').forEach(b=>b.addEventListener('click',()=>regenerateTeamCode(b.dataset.regenerateCode)));
   el.querySelectorAll('[data-print-team]').forEach(b=>b.addEventListener('click',()=>printTeamGuide([b.dataset.printTeam])));
+  el.querySelectorAll('[data-print-app-notice]').forEach(b=>b.addEventListener('click',()=>printTeamAppRegistrationNotices([b.dataset.printAppNotice])));
   el.querySelectorAll('[data-delete-team]').forEach(b=>b.addEventListener('click',()=>deleteTeam(b.dataset.deleteTeam)));
 }
 
@@ -1157,6 +1158,47 @@ function printTeamGuide(teamNos){
     @page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#132b45;background:#fff}.team-sheet{page-break-after:always;height:279mm;max-height:279mm;overflow:hidden;padding:1mm}.team-sheet:last-child{page-break-after:auto}.sheet-head{display:flex;align-items:center;gap:10px;border-bottom:2px solid #167fd7;padding-bottom:6px}.sheet-head img{width:70px;height:48px;object-fit:contain}.sheet-kicker{font-size:9px;color:#5f7890;font-weight:700}.sheet-head h1{font-size:19px;margin:2px 0}.credential-box{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}.credential-box>div{border:1.5px solid #1686e8;border-radius:10px;padding:6px;text-align:center;background:#f4f9ff}.credential-box small{display:block;color:#60788f;font-weight:700;font-size:9px}.credential-box strong{display:block;font-size:24px;letter-spacing:.06em;margin-top:1px}.summary{width:100%;border-collapse:collapse;margin:6px 0;font-size:9.5px}.summary th,.summary td{border:1px solid #cfdde9;padding:4px 5px}.summary th{background:#eef6fc;text-align:left;width:14%}.guide-note{border-left:4px solid #ff8a21;background:#fff7eb;padding:6px 8px;line-height:1.45;font-size:9.5px;margin:7px 0}h2{font-size:12px;margin:7px 0 4px}.runner-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px}.runner-grid>div{min-width:0}.runner-item{display:grid;grid-template-columns:64px 1fr auto;align-items:center;gap:5px;border-bottom:1px solid #d9e4ed;padding:2.5px 3px;font-size:9px;min-height:19px}.runner-item b{color:#174d7a}.runner-item b em{display:block;font-size:7px;font-style:normal;color:#6b8194;font-weight:700;margin-top:1px}.runner-item span{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.runner-item small{font-size:7.8px;color:#60788f;white-space:nowrap}.sheet-foot{font-size:8px;color:#6a8094;margin-top:5px}@media print{button{display:none}}
   </style></head><body>${sheets}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));<\/script></body></html>`);w.document.close();
 }
+
+function teamAppLoginUrl(){
+  const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('screen','timer-login');u.searchParams.set('role','team');return u.toString();
+}
+function makeQrDataUrl(text,size=220){
+  if(!window.QRCode)return '';
+  const box=document.createElement('div');box.style.position='fixed';box.style.left='-10000px';box.style.top='-10000px';document.body.appendChild(box);
+  try{
+    new window.QRCode(box,{text:String(text),width:size,height:size,colorDark:'#123c62',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M});
+    const canvas=box.querySelector('canvas'),img=box.querySelector('img');return canvas?.toDataURL('image/png')||img?.src||'';
+  }catch(e){console.warn('QR generation failed',e);return '';}finally{box.remove();}
+}
+function teamAppRegistrationNoticeHtml(teamNo,qrData){
+  const t=getTeam(teamNo);if(!t)return '';
+  const app=t.sourceApplicationId?state.applications?.[t.sourceApplicationId]:null;
+  const cfg=state.settings||{},code=privateTeamCodes[String(t.teamNo)]||t.accessCode||app?.issuedAccessCode||'未設定';
+  const appUrl=teamAppLoginUrl();
+  return `<section class="app-notice-sheet">
+    <header class="app-notice-head"><img src="${printEscape(absoluteAppUrl('assets/logo-kanji.png'))}" alt="駅伝"><div><div class="app-notice-event">${printEscape(cfg.eventName||'駅伝大会')}</div><h1>駅伝アプリ 登録・ログインのお知らせ</h1></div></header>
+    <p class="app-notice-lead">大会当日のチーム参考計測や確認に使用する駅伝アプリのご案内です。下記のチーム番号とアクセスコードは、チーム内で大切に保管してください。</p>
+    <div class="app-notice-team"><span>チーム名</span><strong>${printEscape(t.teamName||'—')}</strong></div>
+    <div class="app-notice-main">
+      <div class="app-notice-qr">${qrData?`<img src="${qrData}" alt="駅伝アプリQR">`:`<div class="qr-fallback">QRを表示できませんでした<br><small>${printEscape(appUrl)}</small></div>`}<b>駅伝アプリを開く</b><small>${printEscape(appUrl)}</small></div>
+      <div class="app-notice-credentials"><div><small>チーム番号</small><strong>${printEscape(t.teamNo)}</strong></div><div><small>チーム用アクセスコード</small><strong>${printEscape(code)}</strong></div></div>
+    </div>
+    <section class="app-notice-steps"><h2>利用方法</h2><ol><li>QRコードをスマートフォン等で読み取り、駅伝アプリを開きます。</li><li>「チーム計測係」の画面を選びます。QRから開いた場合は、チームログイン画面が表示されます。</li><li>上記の<strong>チーム番号</strong>と<strong>アクセスコード</strong>を入力してログインします。</li><li>必要に応じて、ブラウザのメニューから「ホーム画面に追加」または「アプリをインストール」を行うと、次回から開きやすくなります。</li></ol></section>
+    <div class="app-notice-caution"><strong>ご注意</strong><ul><li>このアクセスコードは、チーム関係者以外には知らせないでください。</li><li>チーム側で計測したタイムはバックアップ用の参考記録です。正式記録は大会運営側の計測を使用します。</li><li>アクセスできない場合やコードを紛失した場合は、大会事務局へご連絡ください。</li></ul></div>
+    <table class="app-notice-info"><tbody><tr><th>開催日</th><td>${printEscape(formatEventDateForGuide(cfg.eventDate))}</td><th>会場</th><td>${printEscape(cfg.venue||'未設定')}</td></tr><tr><th>大会事務局</th><td colspan="3">${printEscape(cfg.contact||'大会事務局')}</td></tr></tbody></table>
+    <footer>この文書は ${printEscape(cfg.eventName||'駅伝大会')} のチーム用案内です。</footer>
+  </section>`;
+}
+function printTeamAppRegistrationNotices(teamNos){
+  const nos=(teamNos||[]).map(String).filter(no=>getTeam(no));if(!nos.length){toast('印刷するチームがありません');return;}
+  const url=teamAppLoginUrl(),qrData=makeQrDataUrl(url,240);
+  const w=window.open('','_blank');if(!w){toast('ポップアップを許可してください');return;}
+  const sheets=nos.map(no=>teamAppRegistrationNoticeHtml(no,qrData)).join('');
+  w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>駅伝アプリ 登録・ログインのお知らせ</title><style>
+    @page{size:A4 portrait;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#17324d;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}.app-notice-sheet{height:277mm;page-break-after:always;padding:2mm 3mm;overflow:hidden}.app-notice-sheet:last-child{page-break-after:auto}.app-notice-head{display:flex;align-items:center;gap:5mm;border-bottom:1.2mm solid #2280c6;padding-bottom:4mm}.app-notice-head img{width:27mm;height:18mm;object-fit:contain}.app-notice-event{font-size:3.3mm;font-weight:800;color:#57758f}.app-notice-head h1{font-size:7.3mm;margin:1mm 0 0}.app-notice-lead{font-size:4mm;line-height:1.7;margin:5mm 1mm}.app-notice-team{display:flex;align-items:center;gap:5mm;border-radius:4mm;background:#eef7ff;padding:4mm 6mm;margin-bottom:5mm}.app-notice-team span{font-size:3.7mm;font-weight:800;color:#5d7890}.app-notice-team strong{font-size:6.2mm}.app-notice-main{display:grid;grid-template-columns:70mm 1fr;gap:8mm;align-items:center}.app-notice-qr{text-align:center;font-size:3.7mm}.app-notice-qr img{width:52mm;height:52mm;display:block;margin:0 auto 2mm}.app-notice-qr>b{display:block}.app-notice-qr>small{display:block;margin-top:1.5mm;font-size:2.3mm;color:#6a7f91;overflow-wrap:anywhere}.qr-fallback{width:52mm;height:52mm;border:1px dashed #9eb5c6;display:flex;align-items:center;justify-content:center;flex-direction:column;margin:0 auto 2mm;font-size:3mm}.app-notice-credentials{display:grid;gap:5mm}.app-notice-credentials>div{border:1mm solid #2387d3;border-radius:4mm;background:#f6fbff;padding:5mm;text-align:center}.app-notice-credentials small{display:block;font-size:3.4mm;font-weight:800;color:#5b7890}.app-notice-credentials strong{display:block;font-size:10mm;letter-spacing:.08em;margin-top:1mm}.app-notice-steps{margin-top:6mm}.app-notice-steps h2{font-size:5mm;margin:0 0 2mm}.app-notice-steps ol{margin:0;padding-left:7mm;font-size:3.7mm;line-height:1.7}.app-notice-caution{margin-top:5mm;background:#fff7ea;border-left:1.5mm solid #f29328;border-radius:1mm;padding:3.5mm 5mm;font-size:3.5mm;line-height:1.55}.app-notice-caution ul{margin:1.5mm 0 0;padding-left:6mm}.app-notice-info{width:100%;border-collapse:collapse;margin-top:5mm;font-size:3.4mm}.app-notice-info th,.app-notice-info td{border:.3mm solid #cbdbe8;padding:2.5mm 3mm}.app-notice-info th{background:#eef5fa;text-align:left;width:16%}.app-notice-sheet footer{text-align:right;font-size:2.8mm;color:#718697;margin-top:4mm}@media print{body{background:#fff}}
+  </style></head><body>${sheets}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));<\/script></body></html>`);w.document.close();
+}
+
 function renameTeam(no){const t=getTeam(no);if(!t)return;const name=prompt('新しいチーム名を入力してください。',t.teamName);if(!name?.trim())return;queueWrite(`teams/${teamKey(no)}`,{...t,teamName:name.trim()});toast('チーム名を変更しました');}
 async function regenerateTeamCode(no){const t=getTeam(no);if(!t||!confirm(`${t.teamName}のチーム用アクセスコードを再発行しますか？`))return;const code=randomNumericCode();if(supabaseMode){if(!(await setTeamSecret(no,code)))return;}else queueWrite(`teams/${teamKey(no)}`,{...t,accessCode:code});if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,issuedAccessCode:code,updatedAt:syncedNow()});}toast(`新しいコード：${code}`);renderCurrent();}
 async function deleteTeam(no){const t=getTeam(no);if(!t)return;if(teamProgress(no)>0){toast('計測記録があるチームは削除できません');return;}if(!confirm(`チーム${no}「${t.teamName}」を削除しますか？`))return;if(supabaseMode)await deleteTeamSecret(no);queueWrite(`teams/${teamKey(no)}`,null,true);if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,status:'pending',issuedTeamNo:null,issuedAccessCode:null,approvedAt:null,updatedAt:syncedNow()});}toast('チームを削除しました');}
@@ -1174,6 +1216,7 @@ function makeDummyApplication(seed){
 }
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
 document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
+document.getElementById('printAllAppNoticesBtn')?.addEventListener('click',()=>printTeamAppRegistrationNotices(teamList().map(t=>t.teamNo)));
 document.getElementById('exportApplicationsBtn').addEventListener('click',()=>{
   const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_application_list.csv','text/csv;charset=utf-8');
 });
@@ -1386,7 +1429,7 @@ window.addEventListener('storage',e=>{if(supabaseMode)return;if(e.key===STORAGE_
 window.addEventListener('beforeunload',()=>{});
 
 renderElapsed();renderSyncStatus();initSupabase();
-const initialScreen=new URLSearchParams(location.search).get('screen');if(initialScreen==='entry')go('entry');else if(initialScreen==='funrun')go('funrun-entry');else renderTopStatus();
+const initialParams=new URLSearchParams(location.search),initialScreen=initialParams.get('screen');if(initialScreen==='entry')go('entry');else if(initialScreen==='funrun')go('funrun-entry');else if(initialScreen==='timer-login'){go('timer-login');if(initialParams.get('role')==='team')setTimeout(()=>document.querySelector('[data-login-tab="team"]')?.click(),0);}else renderTopStatus();
 
 
 // ---------- 管理画面カテゴリタブ (v1.0.7) ----------
