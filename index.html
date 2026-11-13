@@ -441,8 +441,8 @@
           </article>
 
           <article class="panel wide admin-tab-panel" data-admin-category="entries">
-            <div class="panel-heading"><h2>登録チーム管理</h2><div class="action-row wrap"><button class="secondary-btn" id="printAllTeamsBtn">チーム参加案内を一括PDF・印刷</button><button class="secondary-btn" id="printAllAppNoticesBtn">アプリ登録案内を一括PDF・印刷</button><span class="mini-badge">承認後</span></div></div>
-            <p class="hint">申込を承認するとチーム番号と4桁のアクセスコードを自動発行します。「チーム参加案内」と、QR・ログイン情報をまとめた「アプリ登録案内」を個別または一括でPDF保存・紙印刷できます。CSV登録チームもここに表示されます。</p>
+            <div class="panel-heading"><h2>登録チーム管理</h2><div class="action-row wrap"><button class="primary-btn" id="saveTeamManagementBtn" disabled>変更を保存</button><span class="mini-badge online" id="teamManagementDirtyBadge">保存済み</span><button class="danger-btn" id="bulkDeleteTeamsBtn">登録チームを一括削除</button><button class="secondary-btn" id="printAllTeamsBtn">チーム参加案内を一括PDF・印刷</button><button class="secondary-btn" id="printAllAppNoticesBtn">アプリ登録案内を一括PDF・印刷</button></div></div>
+            <p class="hint">申込を承認するとチーム番号と4桁のアクセスコードを自動発行します。チーム削除・一括削除は画面上で確認後、「変更を保存」を押すとSupabaseへ確定します。計測記録は従来どおり即時保存されます。「チーム参加案内」「アプリ登録案内」は個別または一括でPDF保存・紙印刷できます。</p>
             <div id="teamManagementList" class="table-wrap"></div>
           </article>
 

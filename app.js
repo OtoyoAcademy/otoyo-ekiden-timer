@@ -8,7 +8,7 @@ const LOCK_STALE_MS = 90000;
 const HEARTBEAT_MS = 20000;
 const DEFAULT_NOTICE = '開会式は、体育館で10時からとなっています。参加者は、5分前にはお集まりください。';
 const DEFAULT_CODES = { admin:'1234', A:'1111', B:'2222', C:'3333' };
-const APP_VERSION='1.0.23';
+const APP_VERSION='1.0.27';
 const TEAM_COLORS={
   1:'#FA927E',2:'#78C7FC',3:'#F8CC76',4:'#9EE6B4',5:'#C1A6F9',
   6:'#F6AAD2',7:'#88E2DB',8:'#F3B180',9:'#A5BDF3',10:'#D2E58A'
@@ -49,6 +49,9 @@ let serverTimeTimer = null;
 let heartbeatTimer = null;
 let selectedArchiveId = null;
 let teamEditContext = {applicationId:null,teamNo:null};
+let teamManagementDirty = false;
+let pendingDeletedTeamNos = new Set();
+let pendingDeletedApplicationIds = new Set();
 let state = loadLocalState();
 let pendingQueue = loadQueue();
 
@@ -351,7 +354,13 @@ async function sendQueuedOp(op){
     if(op.remove){({error}=await sb.from('ekiden_kv').delete().eq('path',op.path));}
     else if(op.path.startsWith('applications/')&&currentSession?.role!=='admin'){({error}=await sb.rpc('ekiden_submit_application',{p_path:op.path,p_value:op.value}));}
     else if(op.path.startsWith('funRunEntries/')&&currentSession?.role!=='admin'){({error}=await sb.rpc('ekiden_submit_funrun',{p_path:op.path,p_value:op.value}));}
-    else {({error}=await sb.from('ekiden_kv').upsert({path:op.path,value:op.value,updated_at:new Date().toISOString()},{onConflict:'path'}));}
+    else {
+      if(op.path==='teams'&&currentSession?.role==='admin'){
+        const cleanup=await sb.from('ekiden_kv').delete().like('path','teams/%');
+        if(cleanup.error)throw cleanup.error;
+      }
+      ({error}=await sb.from('ekiden_kv').upsert({path:op.path,value:op.value,updated_at:new Date().toISOString()},{onConflict:'path'}));
+    }
     if(error)throw error;
     pendingQueue=pendingQueue.filter(x=>x.id!==op.id);saveQueue();
   }catch(err){console.warn('Supabase write pending',op.path,err?.message||err);}
@@ -1061,12 +1070,15 @@ async function approveApplication(id){
   if(!confirm(msg))return;
   const no=nextTeamNumber(),code=randomNumericCode(),team={teamNo:no,teamName:displayName,runners:(a.runners||[]).map(r=>({...r,leg:Number(r.leg)})),sourceApplicationId:id};
   if(!supabaseMode){team.accessCode=code;team.representative={name:a.contact?.repName||'',phone:a.contact?.phone||'',email:a.contact?.email||'',contactPref:a.contact?.contactPref||''};}
-  if(supabaseMode&&!(await setTeamSecret(no,code)))return;queueWrite(`teams/${teamKey(no)}`,team);queueWrite(`applications/${id}`,{...a,status:'approved',issuedTeamNo:no,issuedAccessCode:code,approvedAt:syncedNow(),updatedAt:syncedNow()});toast(`チーム${no}として承認しました`);
+  if(supabaseMode&&!(await setTeamSecret(no,code)))return;
+  queueWrite('teams',{...(state.teams||{}),[teamKey(no)]:team});
+  queueWrite(`applications/${id}`,{...a,status:'approved',issuedTeamNo:no,issuedAccessCode:code,approvedAt:syncedNow(),updatedAt:syncedNow()});toast(`チーム${no}として承認しました`);
 }
 function setApplicationStatus(id,status){const a=state.applications?.[id];if(!a)return;queueWrite(`applications/${id}`,{...a,status,updatedAt:syncedNow()});toast(status==='returned'?'差戻しにしました':'未確認へ戻しました');}
 function deleteApplication(id){const a=state.applications?.[id];if(!a)return;if(a.status==='approved'){toast('承認済み申込は先に登録チームを確認してください');return;}if(confirm(`申込「${a.teamName}」を削除しますか？`)){queueWrite(`applications/${id}`,null,true);toast('申込を削除しました');}}
 
 function renderTeamManagement(){
+  updateTeamManagementSaveUi();
   const teams=teamList(),el=document.getElementById('teamManagementList');if(!teams.length){el.innerHTML='<div class="empty-state">登録チームはありません。</div>';return;}
   el.innerHTML=`<table class="data-table"><thead><tr><th>No.</th><th>チーム名</th><th>代表者</th><th>走者</th><th>アクセスコード</th><th>操作</th></tr></thead><tbody>${teams.map(t=>`<tr><td>${teamColorMark(t.teamNo,'large')}${esc(t.teamNo)}</td><td>${esc(t.teamName)}</td><td>${esc(state.applications?.[t.sourceApplicationId]?.contact?.repName||t.representative?.name||'—')}</td><td>${(t.runners||[]).filter(r=>Number(r.leg)<=getLegCount()).length}/${getLegCount()}区間</td><td><span class="team-code-inline">${esc(privateTeamCodes[String(t.teamNo)]||t.accessCode||'未設定')}</span></td><td><button class="tiny-btn blue" data-edit-team="${esc(t.teamNo)}">詳細・編集</button> <button class="tiny-btn" data-regenerate-code="${esc(t.teamNo)}">4桁コード再発行</button> <button class="tiny-btn green" data-print-team="${esc(t.teamNo)}">参加案内</button> <button class="tiny-btn purple" data-print-app-notice="${esc(t.teamNo)}">アプリ登録案内</button> <button class="tiny-btn red" data-delete-team="${esc(t.teamNo)}">削除</button></td></tr>`).join('')}</tbody></table>`;
   el.querySelectorAll('[data-edit-team]').forEach(b=>b.addEventListener('click',()=>openRegisteredTeamDetail(b.dataset.editTeam)));
@@ -1109,7 +1121,7 @@ function saveTeamDetail(){
   const rows=[...document.querySelectorAll('#teamDetailRunnerRows tr')];
   const runners=rows.map(row=>({leg:Number(row.dataset.teamDetailLeg),name:row.querySelector('[data-detail-runner-name]').value.trim(),sex:row.querySelector('[data-detail-runner-sex]').value,ageGroup:row.querySelector('[data-detail-runner-group]').value}));
   if(app){const contact={...(app.contact||{}),repName:document.getElementById('teamDetailRepName').value.trim(),phone:document.getElementById('teamDetailPhone').value.trim(),email:document.getElementById('teamDetailEmail').value.trim()};queueWrite(`applications/${app.id}`,{...app,teamName,contact,runners,notes:document.getElementById('teamDetailNotes').value.trim(),updatedAt:syncedNow()});}
-  if(team){queueWrite(`teams/${teamKey(team.teamNo)}`,{...team,teamName:teamName||team.teamName||'（チーム名未設定）',runners});}
+  if(team){const nextTeams={...(state.teams||{}),[teamKey(team.teamNo)]:{...team,teamName:teamName||team.teamName||'（チーム名未設定）',runners}};queueWrite('teams',nextTeams);}
   const filled=runners.filter(r=>r.name).length;
   toast(`チーム情報を保存しました（走者 ${filled}/${getLegCount()}区間）`);renderTeamDetail();
 }
@@ -1199,9 +1211,56 @@ function printTeamAppRegistrationNotices(teamNos){
   </style></head><body>${sheets}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),350));<\/script></body></html>`);w.document.close();
 }
 
-function renameTeam(no){const t=getTeam(no);if(!t)return;const name=prompt('新しいチーム名を入力してください。',t.teamName);if(!name?.trim())return;queueWrite(`teams/${teamKey(no)}`,{...t,teamName:name.trim()});toast('チーム名を変更しました');}
-async function regenerateTeamCode(no){const t=getTeam(no);if(!t||!confirm(`${t.teamName}のチーム用アクセスコードを再発行しますか？`))return;const code=randomNumericCode();if(supabaseMode){if(!(await setTeamSecret(no,code)))return;}else queueWrite(`teams/${teamKey(no)}`,{...t,accessCode:code});if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,issuedAccessCode:code,updatedAt:syncedNow()});}toast(`新しいコード：${code}`);renderCurrent();}
-async function deleteTeam(no){const t=getTeam(no);if(!t)return;if(teamProgress(no)>0){toast('計測記録があるチームは削除できません');return;}if(!confirm(`チーム${no}「${t.teamName}」を削除しますか？`))return;if(supabaseMode)await deleteTeamSecret(no);queueWrite(`teams/${teamKey(no)}`,null,true);if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,status:'pending',issuedTeamNo:null,issuedAccessCode:null,approvedAt:null,updatedAt:syncedNow()});}toast('チームを削除しました');}
+function markTeamManagementDirty(message='未保存の変更があります'){
+  teamManagementDirty=true;updateTeamManagementSaveUi();if(message)toast(message);
+}
+function updateTeamManagementSaveUi(){
+  const btn=document.getElementById('saveTeamManagementBtn'),badge=document.getElementById('teamManagementDirtyBadge');
+  if(btn)btn.disabled=!teamManagementDirty;
+  if(badge){badge.textContent=teamManagementDirty?'未保存':'保存済み';badge.className='mini-badge '+(teamManagementDirty?'warning':'online');}
+}
+function renameTeam(no){
+  const t=getTeam(no);if(!t)return;const name=prompt('新しいチーム名を入力してください。',t.teamName);if(!name?.trim())return;
+  const nextTeams={...(state.teams||{}),[teamKey(no)]:{...t,teamName:name.trim()}};state.teams=nextTeams;saveLocalSnapshot();markTeamManagementDirty('チーム名を変更しました。「変更を保存」で確定してください');renderCurrent();
+}
+async function regenerateTeamCode(no){const t=getTeam(no);if(!t||!confirm(`${t.teamName}のチーム用アクセスコードを再発行しますか？`))return;const code=randomNumericCode();if(supabaseMode){if(!(await setTeamSecret(no,code)))return;}else {const nextTeams={...(state.teams||{}),[teamKey(no)]:{...t,accessCode:code}};queueWrite('teams',nextTeams);}if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];queueWrite(`applications/${t.sourceApplicationId}`,{...a,issuedAccessCode:code,updatedAt:syncedNow()});}toast(`新しいコード：${code}`);renderCurrent();}
+function stageTeamDeletion(no){
+  const t=getTeam(no);if(!t)return false;
+  const nextTeams={...(state.teams||{})};delete nextTeams[teamKey(no)];state.teams=nextTeams;
+  if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];state.applications={...(state.applications||{}),[t.sourceApplicationId]:{...a,status:'pending',issuedTeamNo:null,issuedAccessCode:null,approvedAt:null,updatedAt:syncedNow()}};pendingDeletedApplicationIds.add(String(t.sourceApplicationId));}
+  pendingDeletedTeamNos.add(String(no));saveLocalSnapshot();teamManagementDirty=true;renderCurrent();updateTeamManagementSaveUi();return true;
+}
+async function deleteTeam(no){
+  const t=getTeam(no);if(!t)return;if(teamProgress(no)>0){toast('計測記録があるチームは削除できません');return;}
+  if(!confirm(`チーム${no}「${t.teamName}」を削除予定にしますか？\n「変更を保存」を押すまでSupabaseには反映されません。`))return;
+  if(stageTeamDeletion(no))toast('削除予定にしました。「変更を保存」で確定してください');
+}
+function hasAnyRaceMeasurement(){return Object.keys(state.officialMeasurements||{}).length>0||Object.values(state.teamMeasurements||{}).some(bucket=>Object.keys(bucket||{}).length>0)||computedPasses().length>0;}
+function bulkDeleteRegisteredTeams(){
+  const teams=teamList();if(!teams.length){toast('登録チームはありません');return;}
+  if(hasAnyRaceMeasurement()){toast('計測記録があるため一括削除できません。必要なら「現在大会を初期化」を使用してください');return;}
+  if(!confirm(`登録中の${teams.length}チームをすべて削除予定にしますか？\n申込データは残し、承認状態だけ未確認へ戻します。`))return;
+  if(!confirm('本当に全チームを削除しますか？\nこの操作は「変更を保存」を押すまで確定しません。'))return;
+  for(const t of teams){pendingDeletedTeamNos.add(String(t.teamNo));if(t.sourceApplicationId&&state.applications?.[t.sourceApplicationId]){const a=state.applications[t.sourceApplicationId];state.applications[t.sourceApplicationId]={...a,status:'pending',issuedTeamNo:null,issuedAccessCode:null,approvedAt:null,updatedAt:syncedNow()};pendingDeletedApplicationIds.add(String(t.sourceApplicationId));}}
+  state.teams={};saveLocalSnapshot();teamManagementDirty=true;renderCurrent();updateTeamManagementSaveUi();toast('全チームを削除予定にしました。「変更を保存」で確定してください');
+}
+async function saveTeamManagementChanges(){
+  if(!teamManagementDirty){toast('保存する変更はありません');return;}
+  const btn=document.getElementById('saveTeamManagementBtn');if(btn)btn.disabled=true;
+  try{
+    if(supabaseMode){
+      if(!supabaseReady||!sb){throw new Error('Supabaseに接続できていません');}
+      for(const no of pendingDeletedTeamNos){const ok=await deleteTeamSecret(no);if(!ok)throw new Error(`チーム${no}のアクセスコード削除に失敗しました`);}
+      let r=await sb.from('ekiden_kv').delete().like('path','teams/%');if(r.error)throw r.error;
+      r=await sb.from('ekiden_kv').upsert({path:'teams',value:sanitizeRemoteValue('teams',state.teams||{}),updated_at:new Date().toISOString()},{onConflict:'path'});if(r.error)throw r.error;
+      for(const appId of pendingDeletedApplicationIds){
+        const app=state.applications?.[appId];
+        if(app){const rr=await sb.from('ekiden_kv').upsert({path:`applications/${app.id}`,value:app,updated_at:new Date().toISOString()},{onConflict:'path'});if(rr.error)throw rr.error;}
+      }
+    }
+    pendingDeletedTeamNos.clear();pendingDeletedApplicationIds.clear();teamManagementDirty=false;saveLocalSnapshot();updateTeamManagementSaveUi();toast('登録チームの変更をSupabaseへ保存しました');await refreshRemoteState();
+  }catch(err){console.error(err);teamManagementDirty=true;updateTeamManagementSaveUi();toast(`保存に失敗しました：${err?.message||err}`);}
+}
 
 function addManualApplication(){
   const at=syncedNow(),id=makeId('manual');
@@ -1217,6 +1276,8 @@ function makeDummyApplication(seed){
 document.getElementById('loadDemoApplicationsBtn').addEventListener('click',()=>{const merged={...(state.applications||{})};for(let i=1;i<=6;i++){const a=makeDummyApplication(i);merged[a.id]=a;}queueWrite('applications',merged);toast('ダミー申込を6件追加しました');});
 document.getElementById('printAllTeamsBtn')?.addEventListener('click',()=>printTeamGuide(teamList().map(t=>t.teamNo)));
 document.getElementById('printAllAppNoticesBtn')?.addEventListener('click',()=>printTeamAppRegistrationNotices(teamList().map(t=>t.teamNo)));
+document.getElementById('saveTeamManagementBtn')?.addEventListener('click',saveTeamManagementChanges);
+document.getElementById('bulkDeleteTeamsBtn')?.addEventListener('click',bulkDeleteRegisteredTeams);
 document.getElementById('exportApplicationsBtn').addEventListener('click',()=>{
   const out=[['receipt_no','status','team_name','representative','phone','email','fax','address','contact_preference','student_contact','notes','submitted_at','issued_team_no','issued_access_code']];applicationList().forEach(a=>{const c=a.contact||{};out.push([a.receiptNo||'',a.status||'',a.teamName||'',c.repName||'',c.phone||'',c.email||'',c.fax||'',c.address||'',contactPrefLabel(c.contactPref),c.studentName||'',a.notes||'',a.submittedAt?new Date(a.submittedAt).toISOString():'',a.issuedTeamNo||'',a.issuedAccessCode||'']);});downloadText('\uFEFF'+out.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'ekiden_application_list.csv','text/csv;charset=utf-8');
 });
@@ -1350,13 +1411,13 @@ function clearRaceMeasurements(){queueWrite('officialMeasurements',{});queueWrit
 // ---------- Official timer ----------
 function renderTimer(){
   document.getElementById('operatorLabel').textContent=`計測係 ${currentOperator||'-'}`;document.getElementById('racePhaseLabel').textContent=statusLabel();document.getElementById('timerNote').textContent=state.meta.raceStatus==='running'?'接近するチームを声かけで押し分けてください。複数人の計測値は自動統合されます。':state.meta.raceStatus==='finished'?'競技は終了しています。':'管理者が一斉スタートを押すと計測できます。';
-  const wrap=document.getElementById('teamButtons'),teams=teamList();if(!teams.length)wrap.innerHTML='<div class="empty-state" style="grid-column:1/-1">チームが未登録です。</div>';else wrap.innerHTML=teams.map(t=>{const leg=teamProgress(t.teamNo)+1,count=getLegCount();return `<button class="team-btn ${leg>count?'finished':''}" style="--team-color:${teamColor(t.teamNo)}" data-team="${esc(t.teamNo)}" ${state.meta.raceStatus!=='running'||leg>count?'disabled':''}><strong>${esc(t.teamNo)}</strong><span>${esc(t.teamName)}</span><span class="leg">${leg>count?'FINISH':`次：${legLabel(leg)}`}</span></button>`;}).join('');wrap.querySelectorAll('[data-team]').forEach(b=>b.addEventListener('click',()=>recordOfficialMeasurement(b.dataset.team)));renderTimerLog();
+  const wrap=document.getElementById('teamButtons'),teams=teamList();if(!teams.length)wrap.innerHTML='<div class="empty-state" style="grid-column:1/-1">チームが未登録です。</div>';else wrap.innerHTML=teams.map(t=>{const leg=teamProgress(t.teamNo)+1,count=getLegCount(),runner=(t.runners||[]).find(r=>Number(r.leg)===leg),runnerName=runner?.name||'走者未登録',dist=leg>count?'':legDistanceLabel(leg);return `<button class="team-btn ${leg>count?'finished':''}" style="--team-color:${teamColor(t.teamNo)}" data-team="${esc(t.teamNo)}" ${state.meta.raceStatus!=='running'||leg>count?'disabled':''}><strong>${esc(t.teamNo)}</strong><span class="team-name">${esc(t.teamName)}</span><span class="leg">${leg>count?'完走':`${legLabel(leg)}${dist?`（${esc(dist)}）`:''}`}</span><span class="runner">${leg>count?'—':esc(runnerName)}</span></button>`;}).join('');wrap.querySelectorAll('[data-team]').forEach(b=>b.addEventListener('click',()=>recordOfficialMeasurement(b.dataset.team)));renderTimerLog();
 }
 function recordOfficialMeasurement(teamNo){
-  if(state.meta.raceStatus!=='running'||!currentOperator)return;const t=getTeam(teamNo);if(!t)return;const id=makeId('om'),rec={id,teamNo:String(t.teamNo),teamName:t.teamName,operator:currentOperator,at:syncedNow(),localAt:Date.now(),deviceId:DEVICE_ID,status:'active'};queueWrite(`officialMeasurements/${id}`,rec);toast(`${t.teamName} を記録`);
+  if(state.meta.raceStatus!=='running'||!currentOperator)return;const t=getTeam(teamNo);if(!t)return;const leg=teamProgress(t.teamNo)+1,runner=(t.runners||[]).find(r=>Number(r.leg)===leg);const id=makeId('om'),rec={id,teamNo:String(t.teamNo),teamName:t.teamName,leg,runnerName:runner?.name||'',operator:currentOperator,at:syncedNow(),localAt:Date.now(),deviceId:DEVICE_ID,status:'active'};queueWrite(`officialMeasurements/${id}`,rec);toast(`${t.teamName} ${runner?.name?`／${runner.name}`:''} を記録`);
 }
 function renderTimerLog(){
-  const mine=activeOfficialMeasurements().filter(m=>m.operator===currentOperator).sort((a,b)=>b.at-a.at).slice(0,10);document.getElementById('operatorRecordCount').textContent=`${activeOfficialMeasurements().filter(m=>m.operator===currentOperator).length}件`;document.getElementById('timerLog').innerHTML=mine.length?`<div class="log-list">${mine.map(m=>`<div class="log-item"><span class="log-time">${fmtTimeOfDay(m.at)}</span><span>${esc(m.teamName)}</span><span class="measure-badge">${esc(m.operator)}</span></div>`).join('')}</div>`:'<div class="empty-state">まだ記録がありません。</div>';document.getElementById('undoBtn').disabled=!mine.length;
+  const mine=activeOfficialMeasurements().filter(m=>m.operator===currentOperator).sort((a,b)=>b.at-a.at).slice(0,10);document.getElementById('operatorRecordCount').textContent=`${activeOfficialMeasurements().filter(m=>m.operator===currentOperator).length}件`;document.getElementById('timerLog').innerHTML=mine.length?`<div class="log-list">${mine.map(m=>`<div class="log-item"><span class="log-time">${fmtTimeOfDay(m.at)}</span><span>${esc(m.teamName)}${m.runnerName?`<small class="log-runner">${esc(m.runnerName)}</small>`:''}</span><span class="measure-badge">${esc(m.operator)}</span></div>`).join('')}</div>`:'<div class="empty-state">まだ記録がありません。</div>';document.getElementById('undoBtn').disabled=!mine.length;
 }
 document.getElementById('undoBtn').addEventListener('click',()=>{const last=activeOfficialMeasurements().filter(m=>m.operator===currentOperator).sort((a,b)=>b.at-a.at)[0];if(!last)return;queueWrite(`officialMeasurements/${last.id}`,null,true);toast('直前の記録を取り消しました');});
 document.getElementById('timerLogoutBtn').addEventListener('click',async()=>{await releaseCurrentLock();go('top');});
